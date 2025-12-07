@@ -94,6 +94,18 @@ tempfile = "3.9"
 tokio-test = "0.4"
 rand = "0.8"
 
+# CI 优化：dev 模式快速编译
+[profile.dev]
+opt-level = 0
+debug = false
+incremental = true
+
+# CI 优化：test 模式快速编译
+[profile.test]
+opt-level = 0
+debug = false
+incremental = true
+
 [profile.release]
 opt-level = 3
 lto = true
