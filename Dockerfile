@@ -13,22 +13,11 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# 先复制 Cargo 文件以利用缓存
-COPY Cargo.toml Cargo.lock ./
+# 复制所有源码
+COPY . .
 
-# 创建虚拟源文件以构建依赖缓存
-RUN mkdir -p src/bin && \
-    echo "pub fn dummy() {}" > src/lib.rs && \
-    echo "fn main() {}" > src/bin/server.rs && \
-    echo "fn main() {}" > src/bin/cli.rs && \
-    echo "fn main() {}" > src/bin/import.rs && \
-    cargo build --release || true && \
-    rm -rf src
-
-# 复制实际源码并构建
-COPY src ./src
-COPY examples ./examples
-RUN touch src/lib.rs && cargo build --release
+# 构建 release 版本
+RUN cargo build --release
 
 # Stage 2: Runtime
 FROM debian:bookworm-slim
@@ -37,6 +26,7 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
+    curl \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -m -u 1000 chaingraph
 
