@@ -4,27 +4,18 @@
 
 ## 开发环境设置
 
-1. 安装 Rust (1.70+)
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
+ChainGraph 仅支持容器化部署，开发时也推荐使用 Docker：
 
-2. 克隆仓库
 ```bash
-git clone https://github.com/vesoft/chaingraph.git
-cd chaingraph
-```
+# 克隆仓库
+git clone https://github.com/MuYiYong/ChainGraph.git
+cd ChainGraph
 
-3. 构建项目
-```bash
-cargo build
-```
+# 构建开发镜像
+docker build -t chaingraph:dev .
 
-4. 运行测试
-```bash
-cargo test
-cargo run --example test_syntax
-cargo run --example test_execute
+# 运行测试
+docker run --rm chaingraph:dev cargo test
 ```
 
 ## 代码规范
@@ -33,6 +24,16 @@ cargo run --example test_execute
 - 使用 `cargo clippy` 检查代码质量
 - 为新功能编写测试用例
 - 保持代码注释清晰
+
+## 测试
+
+所有测试都应该在容器中通过：
+
+```bash
+# 构建并测试
+docker build -t chaingraph:test .
+docker run --rm chaingraph:test cargo test
+```
 
 ## 提交 PR
 
