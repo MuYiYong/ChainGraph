@@ -1,8 +1,9 @@
-name: CI
+name: CI/CD
 
 on:
   push:
     branches: [main, master]
+    tags: ['v*']
   pull_request:
     branches: [main, master]
   schedule:
@@ -11,10 +12,18 @@ on:
   workflow_dispatch:
     # 允许手动触发
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
-  test:
+  # Job 1: 构建并测试
+  build-and-test:
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,7 +31,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build test image
+      - name: Build image for testing
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -31,7 +40,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Run tests
+      - name: Run unit tests
         run: |
           docker run --rm chaingraph:test cargo test --verbose
 
@@ -42,3 +51,37 @@ jobs:
       - name: Run execute tests
         run: |
           docker run --rm chaingraph:test cargo run --example test_execute
+
+      # 测试通过后，推送到 Registry（仅非 PR 时）
+      - name: Log in to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        if: github.event_name != 'pull_request'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push to Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
