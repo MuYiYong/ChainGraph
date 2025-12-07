@@ -16,18 +16,19 @@ RUN apt-get update && apt-get install -y \
 # 先复制 Cargo 文件以利用缓存
 COPY Cargo.toml Cargo.lock ./
 
-# 创建虚拟源文件以构建依赖
+# 创建虚拟源文件以构建依赖缓存
 RUN mkdir -p src/bin && \
-    echo "fn main() {}" > src/main.rs && \
+    echo "pub fn dummy() {}" > src/lib.rs && \
     echo "fn main() {}" > src/bin/server.rs && \
     echo "fn main() {}" > src/bin/cli.rs && \
     echo "fn main() {}" > src/bin/import.rs && \
-    cargo build --release 2>/dev/null || true && \
+    cargo build --release || true && \
     rm -rf src
 
 # 复制实际源码并构建
 COPY src ./src
-RUN cargo build --release
+COPY examples ./examples
+RUN touch src/lib.rs && cargo build --release
 
 # Stage 2: Runtime
 FROM debian:bookworm-slim
