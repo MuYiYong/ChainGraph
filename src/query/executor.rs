@@ -215,6 +215,11 @@ impl QueryExecutor {
                     }
                     let target_node = match &path.elements[i + 1] {
                         PathElement::Node(n) => n,
+                        PathElement::ParenthesizedPath(_) => {
+                            // For now, skip to next element after edge
+                            i += 1;
+                            continue;
+                        }
                         _ => {
                             return Err(Error::QueryError(
                                 "Edge must be followed by node".to_string(),
@@ -230,6 +235,66 @@ impl QueryExecutor {
                         stats,
                     )?;
                     i += 1;
+                }
+                PathElement::ParenthesizedPath(paren_path) => {
+                    // Handle parenthesized path patterns (ISO GQL 39075)
+                    // For now, expand the inner path pattern elements
+                    match &paren_path.path_pattern {
+                        PathPatternExpression::Term(inner_elements) => {
+                            // Create a temporary path pattern with the inner elements
+                            let inner_path = PathPattern {
+                                variable: paren_path.subpath_variable.clone(),
+                                path_mode: paren_path.path_mode.or(path.path_mode),
+                                search_prefix: None,
+                                elements: inner_elements.clone(),
+                                quantifier: paren_path.quantifier.clone(),
+                            };
+                            
+                            // Match the inner path for each current binding
+                            let mut new_bindings = Vec::new();
+                            for bindings in current {
+                                let inner_results = self.match_path_pattern(&inner_path, bindings, stats)?;
+                                new_bindings.extend(inner_results);
+                            }
+                            current = new_bindings;
+                        }
+                        PathPatternExpression::Union(alternatives) => {
+                            // Pattern union: match any of the alternatives
+                            let mut all_results = Vec::new();
+                            for bindings in &current {
+                                for alt_elements in alternatives {
+                                    let alt_path = PathPattern {
+                                        variable: paren_path.subpath_variable.clone(),
+                                        path_mode: paren_path.path_mode.or(path.path_mode),
+                                        search_prefix: None,
+                                        elements: alt_elements.clone(),
+                                        quantifier: paren_path.quantifier.clone(),
+                                    };
+                                    let alt_results = self.match_path_pattern(&alt_path, bindings.clone(), stats)?;
+                                    all_results.extend(alt_results);
+                                }
+                            }
+                            current = all_results;
+                        }
+                        PathPatternExpression::MultisetAlternation(alternatives) => {
+                            // Multiset alternation: return all matches from all alternatives
+                            let mut all_results = Vec::new();
+                            for bindings in &current {
+                                for alt_elements in alternatives {
+                                    let alt_path = PathPattern {
+                                        variable: paren_path.subpath_variable.clone(),
+                                        path_mode: paren_path.path_mode.or(path.path_mode),
+                                        search_prefix: None,
+                                        elements: alt_elements.clone(),
+                                        quantifier: paren_path.quantifier.clone(),
+                                    };
+                                    let alt_results = self.match_path_pattern(&alt_path, bindings.clone(), stats)?;
+                                    all_results.extend(alt_results);
+                                }
+                            }
+                            current = all_results;
+                        }
+                    }
                 }
             }
             i += 1;
@@ -321,6 +386,42 @@ impl QueryExecutor {
                             results.push(bindings);
                         }
                     }
+                    PathSearchPrefix::Any => {
+                        // Return any single matching path
+                        let paths = finder.all_paths(source.id(), target.id(), 1);
+                        if let Some(found_path) = paths.into_iter().next() {
+                            let mut bindings = initial.clone();
+                            if let Some(ref var) = source_pattern.variable {
+                                bindings.insert(var.clone(), BindingValue::Vertex(source.clone()));
+                            }
+                            if let Some(ref var) = target_pattern.variable {
+                                bindings.insert(var.clone(), BindingValue::Vertex(target.clone()));
+                            }
+                            if let Some(ref var) = path.variable {
+                                bindings
+                                    .insert(var.clone(), BindingValue::Path(found_path.vertices));
+                            }
+                            results.push(bindings);
+                        }
+                    }
+                    PathSearchPrefix::AnyK(k) => {
+                        // Return k matching paths (not necessarily shortest)
+                        let paths = finder.all_paths(source.id(), target.id(), *k as usize);
+                        for found_path in paths {
+                            let mut bindings = initial.clone();
+                            if let Some(ref var) = source_pattern.variable {
+                                bindings.insert(var.clone(), BindingValue::Vertex(source.clone()));
+                            }
+                            if let Some(ref var) = target_pattern.variable {
+                                bindings.insert(var.clone(), BindingValue::Vertex(target.clone()));
+                            }
+                            if let Some(ref var) = path.variable {
+                                bindings
+                                    .insert(var.clone(), BindingValue::Path(found_path.vertices));
+                            }
+                            results.push(bindings);
+                        }
+                    }
                     PathSearchPrefix::ShortestK(k) => {
                         let paths = finder.k_shortest_paths(source.id(), target.id(), *k as usize);
                         for found_path in paths {
@@ -338,7 +439,40 @@ impl QueryExecutor {
                             results.push(bindings);
                         }
                     }
-                    _ => {}
+                    PathSearchPrefix::ShortestKGroups(k) => {
+                        // Return paths grouped by length (k groups)
+                        // Uses k_shortest_paths and groups by path length
+                        let paths = finder.k_shortest_paths(source.id(), target.id(), (*k as usize) * 5);
+                        let mut groups: std::collections::HashMap<usize, Vec<_>> = std::collections::HashMap::new();
+                        
+                        for found_path in paths {
+                            let len = found_path.vertices.len();
+                            groups.entry(len).or_default().push(found_path);
+                        }
+                        
+                        // Sort groups by length and take k groups
+                        let mut sorted_lengths: Vec<_> = groups.keys().copied().collect();
+                        sorted_lengths.sort();
+                        
+                        for (_group_idx, len) in sorted_lengths.into_iter().take(*k as usize).enumerate() {
+                            if let Some(group_paths) = groups.remove(&len) {
+                                for found_path in group_paths {
+                                    let mut bindings = initial.clone();
+                                    if let Some(ref var) = source_pattern.variable {
+                                        bindings.insert(var.clone(), BindingValue::Vertex(source.clone()));
+                                    }
+                                    if let Some(ref var) = target_pattern.variable {
+                                        bindings.insert(var.clone(), BindingValue::Vertex(target.clone()));
+                                    }
+                                    if let Some(ref var) = path.variable {
+                                        bindings
+                                            .insert(var.clone(), BindingValue::Path(found_path.vertices));
+                                    }
+                                    results.push(bindings);
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -484,23 +618,41 @@ impl QueryExecutor {
         Ok(results)
     }
 
+    /// Get edges by direction (ISO GQL 39075)
+    /// Supports all 7 edge direction types
     fn get_edges_by_direction(&self, vertex: &Vertex, direction: EdgeDirection) -> Vec<Edge> {
         match direction {
             EdgeDirection::Outgoing => self.graph.get_outgoing_edges(vertex.id()),
             EdgeDirection::Incoming => self.graph.get_incoming_edges(vertex.id()),
-            EdgeDirection::Undirected | EdgeDirection::AnyDirection => {
+            EdgeDirection::Undirected => {
+                // For truly undirected graphs, we'd filter by undirected edge type
+                // For directed graphs, treat as bidirectional
                 let mut all = self.graph.get_outgoing_edges(vertex.id());
                 all.extend(self.graph.get_incoming_edges(vertex.id()));
                 all
+            }
+            EdgeDirection::AnyDirection | EdgeDirection::LeftOrRight => {
+                // Both directions: outgoing and incoming
+                let mut all = self.graph.get_outgoing_edges(vertex.id());
+                all.extend(self.graph.get_incoming_edges(vertex.id()));
+                all
+            }
+            EdgeDirection::LeftOrUndirected => {
+                // Incoming or undirected
+                self.graph.get_incoming_edges(vertex.id())
+            }
+            EdgeDirection::UndirectedOrRight => {
+                // Outgoing or undirected
+                self.graph.get_outgoing_edges(vertex.id())
             }
         }
     }
 
     fn get_edge_target(&self, edge: &Edge, source: &Vertex, direction: EdgeDirection) -> VertexId {
         match direction {
-            EdgeDirection::Outgoing => edge.dst(),
-            EdgeDirection::Incoming => edge.src(),
-            EdgeDirection::Undirected | EdgeDirection::AnyDirection => {
+            EdgeDirection::Outgoing | EdgeDirection::UndirectedOrRight => edge.dst(),
+            EdgeDirection::Incoming | EdgeDirection::LeftOrUndirected => edge.src(),
+            EdgeDirection::Undirected | EdgeDirection::AnyDirection | EdgeDirection::LeftOrRight => {
                 if edge.src() == source.id() {
                     edge.dst()
                 } else {

@@ -422,31 +422,54 @@ MATCH (n:Account) RETURN n
 -- 匹配指定地址的账户
 MATCH (n:Account {address: "0x742d35Cc..."}) RETURN n
 
--- 匹配多种类型
+-- 匹配多种类型（标签析取）
 MATCH (n:Account|Contract) RETURN n
+
+-- 匹配同时具有多个标签的节点（标签合取）
+MATCH (n:Account&HighValue) RETURN n
+
+-- 排除特定标签（标签否定）
+MATCH (n:!Contract) RETURN n
+
+-- 通配符标签（匹配任意标签）
+MATCH (n:%) RETURN n
 ```
 
 #### 关系匹配
 
+ChainGraph 支持 ISO GQL 39075 标准的所有 7 种边方向类型：
+
 ```gql
--- 匹配转账关系
+-- 出向边: -[...]->
 MATCH (a:Account)-[t:Transfer]->(b:Account) RETURN a, t, b
 
--- 匹配入向关系
+-- 入向边: <-[...]-
 MATCH (a:Account)<-[t:Transfer]-(b:Account) RETURN a, t, b
 
--- 匹配任意方向
+-- 任意方向: -[...]-
 MATCH (a:Account)-[t:Transfer]-(b:Account) RETURN a, t, b
+
+-- 无向边: ~[...]~
+MATCH (a:Account)~[t:Transfer]~(b:Account) RETURN a, t, b
+
+-- 双向边（左或右）: <-[...]->
+MATCH (a:Account)<-[t:Transfer]->(b:Account) RETURN a, t, b
+
+-- 左或无向: <~[...]~
+MATCH (a:Account)<~[t:Transfer]~(b:Account) RETURN a, t, b
+
+-- 无向或右: ~[...]~>
+MATCH (a:Account)~[t:Transfer]~>(b:Account) RETURN a, t, b
 ```
 
 #### 路径匹配
 
 ```gql
--- 可变长度路径（1到5跳）
-MATCH (a)-[:Transfer*1..5]->(b) RETURN a, b
+-- 可变长度路径（1到5跳，ISO GQL 39075 语法）
+MATCH (a)-[:Transfer]->{1,5}(b) RETURN a, b
 
--- 指定长度路径
-MATCH (a)-[:Transfer*3]->(b) RETURN a, b
+-- 指定长度路径（精确3跳）
+MATCH (a)-[:Transfer]->{3}(b) RETURN a, b
 ```
 
 ### 6.3 WHERE 子句
@@ -934,38 +957,61 @@ DROP GRAPH TYPE IF EXISTS old_schema
 
 ### 6.18 量化路径模式 (ISO GQL 39075)
 
-支持可变长度路径和路径搜索前缀。
+支持可变长度路径和路径搜索前缀，严格遵循 ISO GQL 39075 标准。
 
 #### 可变长度路径
 
 ```gql
 -- 1 到 5 跳
-MATCH (a)-[*1..5]->(b) RETURN a, b
+MATCH (a)-[:Transfer]->{1,5}(b) RETURN a, b
 
 -- 精确 3 跳
-MATCH (a)-[*3]->(b) RETURN a, b
+MATCH (a)-[:Transfer]->{3}(b) RETURN a, b
 
--- 0 跳或更多
-MATCH (a)-[*0..]->(b) RETURN a, b
+-- 至少 2 跳
+MATCH (a)-[:Transfer]->{2,}(b) RETURN a, b
 
--- 任意跳数（有限制）
-MATCH (a)-[*..10]->(b) RETURN a, b
+-- 至多 10 跳
+MATCH (a)-[:Transfer]->{,10}(b) RETURN a, b
+
+-- 1 跳或更多 (+ 语法)
+MATCH (a)-[:Transfer]->+(b) RETURN a, b
+
+-- 0 跳或更多 (* 语法)
+MATCH (a)-[:Transfer]->*(b) RETURN a, b
+
+-- 0 跳或 1 跳 (? 语法)
+MATCH (a)-[:Transfer]->?(b) RETURN a, b
 ```
 
 #### 路径搜索前缀
 
+ChainGraph 支持 ISO GQL 39075 标准的所有路径搜索前缀：
+
 ```gql
--- 最短路径
-MATCH SHORTEST (a)-[*]->(b) RETURN path
+-- 最短路径（默认为 ANY SHORTEST）
+MATCH SHORTEST (a)-[:Transfer]->*(b) RETURN path
 
 -- 所有最短路径
-MATCH ALL SHORTEST (a)-[*]->(b) RETURN path
+MATCH ALL SHORTEST (a)-[:Transfer]->*(b) RETURN path
 
--- 任意路径
-MATCH ANY (a)-[*1..10]->(b) RETURN path
+-- 任意一条路径
+MATCH ANY (a)-[:Transfer]->{1,10}(b) RETURN path
+
+-- 任意 k 条路径
+MATCH ANY 5 (a)-[:Transfer]->{1,10}(b) RETURN path
 
 -- 任意最短路径
-MATCH ANY SHORTEST (a)-[*]->(b) RETURN path
+MATCH ANY SHORTEST (a)-[:Transfer]->*(b) RETURN path
+
+-- 前 k 条最短路径
+MATCH SHORTEST 3 (a)-[:Transfer]->*(b) RETURN path
+
+-- 按长度分组的前 k 组最短路径
+MATCH SHORTEST 2 GROUPS (a)-[:Transfer]->*(b) RETURN path
+
+-- 所有路径
+MATCH ALL (a)-[:Transfer]->{1,5}(b) RETURN path
 ```
 
 ### 6.19 SHOW 语句 - 查看数据库对象
@@ -1938,11 +1984,11 @@ MATCH (n:Account {address: "0x..."}) RETURN n
 -- ❌ 避免：全图扫描
 MATCH (n) WHERE n.balance > 1000 RETURN n
 
--- ✅ 推荐：限制路径深度
-MATCH path = (a)-[:Transfer*1..3]->(b) RETURN path
+-- ✅ 推荐：限制路径深度 (ISO GQL 39075 语法)
+MATCH path = (a)-[:Transfer]->{1,3}(b) RETURN path
 
 -- ❌ 避免：无限深度
-MATCH path = (a)-[:Transfer*]->(b) RETURN path
+MATCH path = (a)-[:Transfer]->*(b) RETURN path
 ```
 
 ### 12.3 运维建议

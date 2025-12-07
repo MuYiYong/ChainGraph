@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChainGraph - README</title>
+    <style>
+
+:root {
+    --bg-color: #1a1a2e;
+    --sidebar-bg: #16213e;
+    --content-bg: #0f0f23;
+    --text-color: #e4e4e4;
+    --heading-color: #00d9ff;
+    --link-color: #64b5f6;
+    --code-bg: #2d2d4a;
+    --border-color: #3d3d5c;
+    --table-header-bg: #2a2a4a;
+    --success-color: #4caf50;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+.container {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 280px;
+    background-color: var(--sidebar-bg);
+    border-right: 1px solid var(--border-color);
+    position: fixed;
+    height: 100vh;
+    overflow-y: auto;
+}
+
+.sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: linear-gradient(135deg, #1e3a5f 0%, #16213e 100%);
+}
+
+.sidebar-header h2 {
+    color: var(--heading-color);
+    font-size: 1.2rem;
+}
+
+.sidebar-content {
+    padding: 15px;
+}
+
+.sidebar-content ul {
+    list-style: none;
+}
+
+.sidebar-content li {
+    margin: 5px 0;
+}
+
+.sidebar-content a {
+    color: var(--text-color);
+    text-decoration: none;
+    font-size: 0.9rem;
+    display: block;
+    padding: 5px 10px;
+    border-radius: 5px;
+    transition: all 0.2s;
+}
+
+.sidebar-content a:hover {
+    background-color: var(--code-bg);
+    color: var(--heading-color);
+}
+
+.content {
+    margin-left: 280px;
+    padding: 40px 60px;
+    max-width: 1000px;
+    background-color: var(--content-bg);
+    min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--heading-color);
+    margin: 1.5em 0 0.5em;
+    font-weight: 600;
+}
+
+h1 {
+    font-size: 2.5rem;
+    border-bottom: 2px solid var(--heading-color);
+    padding-bottom: 10px;
+}
+
+h2 {
+    font-size: 1.8rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+h3 {
+    font-size: 1.4rem;
+}
+
+h4 {
+    font-size: 1.2rem;
+}
+
+p {
+    margin: 1em 0;
+}
+
+a {
+    color: var(--link-color);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+code {
+    background-color: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.9em;
+}
+
+pre {
+    background-color: var(--code-bg);
+    padding: 15px 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 1em 0;
+    border: 1px solid var(--border-color);
+}
+
+pre code {
+    background: none;
+    padding: 0;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+}
+
+.table th, .table td {
+    border: 1px solid var(--border-color);
+    padding: 10px 15px;
+    text-align: left;
+}
+
+.table th {
+    background-color: var(--table-header-bg);
+    color: var(--heading-color);
+    font-weight: 600;
+}
+
+.table tr:nth-child(even) {
+    background-color: rgba(45, 45, 74, 0.3);
+}
+
+ul, ol {
+    margin: 1em 0;
+    padding-left: 2em;
+}
+
+li {
+    margin: 0.5em 0;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 2em 0;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+blockquote {
+    border-left: 4px solid var(--heading-color);
+    padding-left: 20px;
+    margin: 1em 0;
+    color: #aaa;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .sidebar {
+        display: none;
+    }
+    .content {
+        margin-left: 0;
+        padding: 20px;
+    }
+}
+
+/* 代码高亮基础样式 */
+.language-gql, .language-sql, .language-bash, .language-rust, .language-json {
+    color: #a8d4ff;
+}
+
+/* 打印样式 */
+@media print {
+    .sidebar {
+        display: none;
+    }
+    .content {
+        margin-left: 0;
+        background: white;
+        color: black;
+    }
+    h1, h2, h3, h4 {
+        color: #333;
+    }
+    pre, code {
+        background-color: #f5f5f5;
+        border: 1px solid #ddd;
+    }
+}
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h2>📖 导航</h2>
+            </div>
+            <div class="sidebar-content" id="toc">
+            </div>
+        </nav>
+        <main class="content">
+<h1 id="chaingraph">ChainGraph</h1>
+
+<p><p align="center"></p>
+<p>  <img src="https://img.shields.io/badge/language-Rust-orange.svg" alt="Rust"></p>
+<p>  <img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License"></p>
+<p>  <img src="https://img.shields.io/badge/version-0.1.0-green.svg" alt="Version"></p>
+<p>  <img src="https://img.shields.io/badge/deployment-Docker-blue.svg" alt="Docker"></p>
+<p></p></p>
+
+<p><strong>ChainGraph</strong> 是一款专为 Web3 场景设计的高性能图数据库，专注于区块链链路追踪和资金流分析。</p>
+
+<p>> ⚠️ <strong>仅支持容器化部署</strong>：ChainGraph 仅通过 Docker 容器方式提供服务。</p>
+
+<h2 id="-特性">✨ 特性</h2>
+
+<ul>
+<li>🐳 <strong>容器化部署</strong> - 仅支持 Docker，简单易用，开箱即用</li>
+<li>🚀 <strong>SSD 优化存储</strong> - 4KB 页面对齐，LRU 缓冲池，支持海量数据存储</li>
+<li>🔗 <strong>Web3 原生类型</strong> - 内置 Address、TxHash、TokenAmount 等区块链类型</li>
+<li>🔍 <strong>链路追踪算法</strong> - 支持最短路径、所有路径、N跳邻居等多种追踪方式</li>
+<li>💧 <strong>最大流分析</strong> - Edmonds-Karp 算法，用于资金流动分析和反洗钱检测</li>
+<li>📝 <strong>ISO GQL 39075 标准</strong> - 完整支持 ISO/IEC 39075 标准的图查询语言</li>
+</ul>
+
+<h2 id="-快速开始">🚀 快速开始</h2>
+
+<h3 id="方式一docker-compose-推荐">方式一：Docker Compose (推荐)</h3>
+
+<pre><code class="language-bash">
+# 克隆仓库
+git clone https://github.com/MuYiYong/ChainGraph.git
+cd ChainGraph
+
+# 启动服务
+docker compose up -d
+
+# 查看日志
+docker compose logs -f
+
+# 停止服务
+docker compose down
+</code></pre>
+
+<h3 id="方式二预构建镜像">方式二：预构建镜像</h3>
+
+<pre><code class="language-bash">
+# 拉取镜像
+docker pull ghcr.io/muyiyong/chaingraph:latest
+
+# 创建数据卷
+docker volume create chaingraph-data
+
+# 启动服务
+docker run -d \
+  --name chaingraph \
+  -p 8080:8080 \
+  -v chaingraph-data:/data \
+  ghcr.io/muyiyong/chaingraph:latest
+</code></pre>
+
+<h2 id="-使用-cli">🖥️ 使用 CLI</h2>
+
+<pre><code class="language-bash">
+# Docker Compose 方式
+docker compose run --rm chaingraph-cli
+
+# 直接 Docker 方式
+docker run -it --rm \
+  -v chaingraph-data:/data \
+  ghcr.io/muyiyong/chaingraph:latest \
+  chaingraph-cli -d /data
+</code></pre>
+
+<h2 id="-导入数据">📥 导入数据</h2>
+
+<pre><code class="language-bash">
+# 将数据文件放入 import 目录
+mkdir -p import
+cp your_data.csv import/
+
+# 使用 Docker Compose
+docker compose --profile import run --rm chaingraph-import
+
+# 或直接使用 Docker
+docker run --rm \
+  -v chaingraph-data:/data \
+  -v $(pwd)/import:/import:ro \
+  ghcr.io/muyiyong/chaingraph:latest \
+  chaingraph-import -d /data -i /import/your_data.csv
+</code></pre>
+
+<h2 id="-rest-api">🔌 REST API</h2>
+
+<p>服务启动后通过 http://localhost:8080 访问：</p>
+
+<pre><code class="language-bash">
+# 健康检查
+curl http://localhost:8080/health
+
+# 执行 GQL 查询
+curl -X POST http://localhost:8080/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "MATCH (n:Account) RETURN n LIMIT 10"}'
+
+# 获取统计信息
+curl http://localhost:8080/stats
+
+# 最短路径
+curl -X POST http://localhost:8080/algorithm/shortest-path \
+  -H "Content-Type: application/json" \
+  -d '{"source": 1, "target": 100}'
+
+# 最大流分析
+curl -X POST http://localhost:8080/algorithm/max-flow \
+  -H "Content-Type: application/json" \
+  -d '{"source": 1, "sink": 100}'
+</code></pre>
+
+<h2 id="-gql-查询示例">📖 GQL 查询示例</h2>
+
+<h3 id="基本查询">基本查询</h3>
+
+<pre><code class="language-gql">
+-- 查找所有账户
+MATCH (n:Account) RETURN n LIMIT 100
+
+-- 查找转账关系
+MATCH (a:Account)-[t:Transfer]-&gt;(b:Account) 
+RETURN a, t, b LIMIT 50
+</code></pre>
+
+<h3 id="链路追踪">链路追踪</h3>
+
+<pre><code class="language-gql">
+-- 查找两个地址之间的转账路径 (ISO GQL 39075 量词语法)
+MATCH path = (a:Account)-[:Transfer]-&gt;{1,5}(b:Account)
+WHERE a.address = "0xAAA..." AND b.address = "0xBBB..."
+RETURN path
+</code></pre>
+
+<h3 id="数据写入">数据写入</h3>
+
+<pre><code class="language-gql">
+-- 插入账户顶点
+INSERT (alice:Account {address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0"})
+
+-- 插入转账边
+INSERT (a)-[:Transfer {amount: 1000}]-&gt;(b)
+</code></pre>
+
+<h3 id="过程调用">过程调用</h3>
+
+<pre><code class="language-gql">
+-- 最短路径
+CALL shortest_path(1, 5)
+
+-- 链路追踪
+CALL trace(1, 'forward', 5)
+
+-- 最大流分析
+CALL max_flow(1, 100)
+</code></pre>
+
+<h3 id="元数据查询">元数据查询</h3>
+
+<pre><code class="language-gql">
+-- 查看所有图
+SHOW GRAPHS
+
+-- 查看所有标签
+SHOW LABELS
+
+-- 查看图详情
+DESCRIBE GRAPH myGraph
+</code></pre>
+
+<p>更多 GQL 语法详见 <a href="docs/manual.md">用户手册</a></p>
+
+<h2 id="-数据持久化">💾 数据持久化</h2>
+
+<p>数据存储在 Docker Volume 中：</p>
+
+<pre><code class="language-bash">
+# 查看数据卷
+docker volume inspect chaingraph-data
+
+# 备份数据
+docker run --rm \
+  -v chaingraph-data:/data:ro \
+  -v $(pwd)/backup:/backup \
+  alpine tar czf /backup/chaingraph-backup.tar.gz -C /data .
+
+# 恢复数据
+docker run --rm \
+  -v chaingraph-data:/data \
+  -v $(pwd)/backup:/backup:ro \
+  alpine tar xzf /backup/chaingraph-backup.tar.gz -C /data
+</code></pre>
+
+<h2 id="-架构">🏗️ 架构</h2>
+
+<pre><code>
+┌─────────────────────────────────────────────────────────┐
+│                    Docker Container                      │
+├─────────────────────────────────────────────────────────┤
+│                      REST API Layer                      │
+│                   (axum HTTP Server)                     │
+├─────────────────────────────────────────────────────────┤
+│                     Query Engine                         │
+│              ┌─────────┬──────────────┐                  │
+│              │ Parser  │   Executor   │                  │
+│              │  (GQL)  │              │                  │
+│              └─────────┴──────────────┘                  │
+├─────────────────────────────────────────────────────────┤
+│                   Graph Algorithms                       │
+│     ┌──────────────┐        ┌──────────────────┐        │
+│     │ Path Tracing │        │ Max Flow (E-K)   │        │
+│     └──────────────┘        └──────────────────┘        │
+├─────────────────────────────────────────────────────────┤
+│                    Storage Engine                        │
+│   ┌──────────────┐  ┌──────────────┐  ┌────────────┐    │
+│   │ Buffer Pool  │  │ Disk Storage │  │    Page    │    │
+│   │    (LRU)     │  │   (mmap)     │  │   (4KB)    │    │
+│   └──────────────┘  └──────────────┘  └────────────┘    │
+└─────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+                   ┌──────────────┐
+                   │ Docker Volume │
+                   └──────────────┘
+</code></pre>
+
+<h2 id="-数据模型">📊 数据模型</h2>
+
+<h3 id="顶点类型">顶点类型</h3>
+
+<table class="table">
+<thead>
+<tr>
+<th>类型</th>
+<th>描述</th>
+<th>典型属性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Account</code></td>
+<td>EOA 账户</td>
+<td>address, balance</td>
+</tr>
+<tr>
+<th><code>Contract</code></th>
+<th>智能合约</th>
+<th>address, code_hash</th>
+</tr>
+<tr>
+<th><code>Token</code></th>
+<th>代币</th>
+<th>address, symbol</th>
+</tr>
+</tbody>
+</table>
+
+<h3 id="边类型">边类型</h3>
+
+<table class="table">
+<thead>
+<tr>
+<th>类型</th>
+<th>描述</th>
+<th>典型属性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Transfer</code></td>
+<td>代币转账</td>
+<td>amount, token</td>
+</tr>
+<tr>
+<th><code>Call</code></th>
+<th>合约调用</th>
+<th>method, gas</th>
+</tr>
+</tbody>
+</table>
+
+<h2 id="-环境变量">⚙️ 环境变量</h2>
+
+<table class="table">
+<thead>
+<tr>
+<th>变量</th>
+<th>默认值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RUST_LOG</code></td>
+<td><code>info</code></td>
+<td>日志级别 (debug, info, warn, error)</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="-文档">📚 文档</h2>
+
+<ul>
+<li><a href="DOCKER.md">Docker 使用指南</a></li>
+<li><a href="docs/manual.md">用户手册</a></li>
+</ul>
+
+<h2 id="-许可证">📄 许可证</h2>
+
+<p>本项目采用 Apache-2.0 许可证。详见 <a href="LICENSE">LICENSE</a> 文件。</p>
+
+<h2 id="-贡献">🤝 贡献</h2>
+
+<p>欢迎贡献代码！请先阅读 <a href="CONTRIBUTING.md">贡献指南</a>。</p>
+
+<hr>
+
+<p><p align="center"></p>
+<p>  Made with ❤️ for Web3 | 🐳 Container Only</p>
+<p></p></p>
+
+        </main>
+    </div>
+    <script>
+        // 生成目录
+        document.addEventListener('DOMContentLoaded', function() {
+            const toc = document.getElementById('toc');
+            const headings = document.querySelectorAll('h1, h2, h3');
+            let tocHtml = '<ul>';
+            headings.forEach(function(heading) {
+                const level = parseInt(heading.tagName.charAt(1));
+                const text = heading.textContent;
+                const id = heading.id;
+                const indent = (level - 1) * 15;
+                tocHtml += `<li style="margin-left: ${indent}px"><a href="#${id}">${text}</a></li>`;
+            });
+            tocHtml += '</ul>';
+            toc.innerHTML = tocHtml;
+        });
+    </script>
+</body>
+</html>

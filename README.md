@@ -130,8 +130,8 @@ RETURN a, t, b LIMIT 50
 ### 链路追踪
 
 ```gql
--- 查找两个地址之间的转账路径
-MATCH path = (a:Account)-[:Transfer*1..5]->(b:Account)
+-- 查找两个地址之间的转账路径 (ISO GQL 39075 量词语法)
+MATCH path = (a:Account)-[:Transfer]->{1,5}(b:Account)
 WHERE a.address = "0xAAA..." AND b.address = "0xBBB..."
 RETURN path
 ```

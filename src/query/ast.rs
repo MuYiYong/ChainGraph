@@ -150,17 +150,35 @@ impl fmt::Display for MatchMode {
 pub struct GraphPattern {
     /// List of path patterns (comma-separated in GQL)
     pub paths: Vec<PathPattern>,
+    /// KEEP clause for path filtering (ISO GQL 39075)
+    pub keep_clause: Option<KeepClause>,
 }
 
 impl GraphPattern {
     pub fn new() -> Self {
-        GraphPattern { paths: Vec::new() }
+        GraphPattern { 
+            paths: Vec::new(),
+            keep_clause: None,
+        }
     }
 
     pub fn with_path(mut self, path: PathPattern) -> Self {
         self.paths.push(path);
         self
     }
+
+    pub fn with_keep(mut self, keep: KeepClause) -> Self {
+        self.keep_clause = Some(keep);
+        self
+    }
+}
+
+/// KEEP clause for path filtering (ISO GQL 39075)
+/// keepClause: KEEP pathPatternPrefix
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KeepClause {
+    /// Path search prefix to keep (e.g., ALL SHORTEST, ANY, etc.)
+    pub path_prefix: PathSearchPrefix,
 }
 
 impl Default for GraphPattern {
@@ -227,11 +245,70 @@ impl Default for PathPattern {
     }
 }
 
-/// Path element: either a node or an edge
+/// Path element: node, edge, or parenthesized path pattern
 #[derive(Debug, Clone)]
 pub enum PathElement {
     Node(NodePattern),
     Edge(EdgePattern),
+    /// Parenthesized path pattern expression (ISO GQL 39075)
+    /// Allows grouping of path patterns with optional subpath variable, path mode, and WHERE clause
+    ParenthesizedPath(Box<ParenthesizedPathPattern>),
+}
+
+/// Parenthesized path pattern expression (ISO GQL 39075)
+/// parenthesizedPathPatternExpression: LEFT_PAREN subpathVariableDeclaration? pathModePrefix? pathPatternExpression parenthesizedPathPatternWhereClause? RIGHT_PAREN
+#[derive(Debug, Clone)]
+pub struct ParenthesizedPathPattern {
+    /// Subpath variable name (e.g., p = ...)
+    pub subpath_variable: Option<String>,
+    /// Path mode prefix (WALK, TRAIL, SIMPLE, ACYCLIC)
+    pub path_mode: Option<PathMode>,
+    /// Inner path pattern expression
+    pub path_pattern: PathPatternExpression,
+    /// WHERE clause inside the parenthesized path pattern
+    pub where_clause: Option<Box<Expression>>,
+    /// Quantifier for the parenthesized path pattern
+    pub quantifier: Option<PatternQuantifier>,
+}
+
+impl ParenthesizedPathPattern {
+    pub fn new(path_pattern: PathPatternExpression) -> Self {
+        ParenthesizedPathPattern {
+            subpath_variable: None,
+            path_mode: None,
+            path_pattern,
+            where_clause: None,
+            quantifier: None,
+        }
+    }
+
+    pub fn with_subpath_variable(mut self, var: String) -> Self {
+        self.subpath_variable = Some(var);
+        self
+    }
+
+    pub fn with_quantifier(mut self, quantifier: PatternQuantifier) -> Self {
+        self.quantifier = Some(quantifier);
+        self
+    }
+}
+
+/// Path pattern expression (ISO GQL 39075)
+/// pathPatternExpression: pathTerm | pathTerm (MULTISET_ALTERNATION_OPERATOR pathTerm)+ | pathTerm (VERTICAL_BAR pathTerm)+
+#[derive(Debug, Clone)]
+pub enum PathPatternExpression {
+    /// Single path term
+    Term(Vec<PathElement>),
+    /// Pattern union (|): matches any of the path terms
+    Union(Vec<Vec<PathElement>>),
+    /// Multiset alternation (|+|): returns all matches from all alternatives
+    MultisetAlternation(Vec<Vec<PathElement>>),
+}
+
+impl Default for PathPatternExpression {
+    fn default() -> Self {
+        PathPatternExpression::Term(Vec::new())
+    }
 }
 
 /// Path mode prefix (ISO GQL 39075)
@@ -273,14 +350,16 @@ pub enum PathSearchPrefix {
     All,
     /// ANY - return any single matching path
     Any,
+    /// ANY k - return k matching paths
+    AnyK(u64),
     /// ALL SHORTEST - return all shortest paths
     AllShortest,
     /// ANY SHORTEST - return any single shortest path
     AnyShortest,
     /// SHORTEST k - return k shortest paths
     ShortestK(u64),
-    /// SHORTEST k GROUP - return shortest paths in groups
-    ShortestKGroup(u64),
+    /// SHORTEST k GROUPS - return shortest paths grouped by length
+    ShortestKGroups(u64),
 }
 
 impl fmt::Display for PathSearchPrefix {
@@ -288,10 +367,11 @@ impl fmt::Display for PathSearchPrefix {
         match self {
             PathSearchPrefix::All => write!(f, "ALL"),
             PathSearchPrefix::Any => write!(f, "ANY"),
+            PathSearchPrefix::AnyK(k) => write!(f, "ANY {}", k),
             PathSearchPrefix::AllShortest => write!(f, "ALL SHORTEST"),
             PathSearchPrefix::AnyShortest => write!(f, "ANY SHORTEST"),
             PathSearchPrefix::ShortestK(k) => write!(f, "SHORTEST {}", k),
-            PathSearchPrefix::ShortestKGroup(k) => write!(f, "SHORTEST {} GROUP", k),
+            PathSearchPrefix::ShortestKGroups(k) => write!(f, "SHORTEST {} GROUPS", k),
         }
     }
 }
@@ -481,17 +561,24 @@ impl EdgePattern {
     }
 }
 
-/// Edge direction
+/// Edge direction (ISO GQL 39075)
+/// Supports all 7 direction types from the standard
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EdgeDirection {
-    /// Outgoing edge: -[...]-\>
+    /// Outgoing edge: -[...]->
     Outgoing,
-    /// Incoming edge: \<-[...]-
+    /// Incoming edge: <-[...]-
     Incoming,
-    /// Undirected edge: -[...]-
+    /// Undirected edge: ~[...]~
     Undirected,
-    /// Any direction: \<-[...]-\> or ~[...]~
+    /// Any direction (bidirectional): -[...]-
     AnyDirection,
+    /// Left or undirected: <~[...]~
+    LeftOrUndirected,
+    /// Undirected or right: ~[...]~>
+    UndirectedOrRight,
+    /// Left or right (but not undirected): <-[...]->
+    LeftOrRight,
 }
 
 impl fmt::Display for EdgeDirection {
@@ -499,8 +586,11 @@ impl fmt::Display for EdgeDirection {
         match self {
             EdgeDirection::Outgoing => write!(f, "->"),
             EdgeDirection::Incoming => write!(f, "<-"),
-            EdgeDirection::Undirected => write!(f, "-"),
-            EdgeDirection::AnyDirection => write!(f, "<->"),
+            EdgeDirection::Undirected => write!(f, "~"),
+            EdgeDirection::AnyDirection => write!(f, "-"),
+            EdgeDirection::LeftOrUndirected => write!(f, "<~"),
+            EdgeDirection::UndirectedOrRight => write!(f, "~>"),
+            EdgeDirection::LeftOrRight => write!(f, "<->"),
         }
     }
 }

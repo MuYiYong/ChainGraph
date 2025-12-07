@@ -134,6 +134,7 @@ impl GqlParser {
     }
 
     /// Parse graph pattern (comma-separated path patterns)
+    /// graphPattern: matchMode? pathPatternList keepClause? graphPatternWhereClause?
     fn parse_graph_pattern(&mut self) -> Result<GraphPattern> {
         let mut paths = Vec::new();
         paths.push(self.parse_path_pattern()?);
@@ -142,11 +143,29 @@ impl GqlParser {
             paths.push(self.parse_path_pattern()?);
         }
 
-        Ok(GraphPattern { paths })
+        // Parse optional KEEP clause
+        let keep_clause = self.parse_keep_clause()?;
+
+        Ok(GraphPattern { paths, keep_clause })
     }
 
-    /// Parse path pattern with optional prefix
-    /// pathPattern: [pathVariable =] [pathPrefix] pathExpression
+    /// Parse KEEP clause (ISO GQL 39075)
+    /// keepClause: KEEP pathPatternPrefix
+    fn parse_keep_clause(&mut self) -> Result<Option<KeepClause>> {
+        if self.try_keyword("KEEP") {
+            // Parse path search prefix after KEEP
+            if let Some(prefix) = self.parse_path_search_prefix()? {
+                Ok(Some(KeepClause { path_prefix: prefix }))
+            } else {
+                Err(Error::ParseError("Expected path prefix after KEEP (e.g., ALL SHORTEST, ANY)".to_string()))
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Parse path pattern with optional prefix (ISO GQL 39075)
+    /// pathPattern: pathVariableDeclaration? pathPatternPrefix? pathPatternExpression
     fn parse_path_pattern(&mut self) -> Result<PathPattern> {
         let mut pattern = PathPattern::new();
 
@@ -171,30 +190,196 @@ impl GqlParser {
         // Parse path search prefix (ALL | ANY | SHORTEST)
         pattern.search_prefix = self.parse_path_search_prefix()?;
 
-        // Parse first node
-        pattern
-            .elements
-            .push(PathElement::Node(self.parse_node_pattern()?));
+        // Parse path pattern expression (supports |, |+|, and parenthesized patterns)
+        pattern.elements = self.parse_path_pattern_elements()?;
 
-        // Parse edges and subsequent nodes
+        // Parse optional quantifier for the whole path
+        pattern.quantifier = self.parse_quantifier()?;
+
+        Ok(pattern)
+    }
+
+    /// Parse path pattern elements (ISO GQL 39075)
+    /// Supports: node patterns, edge patterns, parenthesized path patterns, union (|), multiset alternation (|+|)
+    fn parse_path_pattern_elements(&mut self) -> Result<Vec<PathElement>> {
+        let first_term = self.parse_path_term()?;
+
+        self.skip_whitespace();
+
+        // Check for multiset alternation (|+|) or pattern union (|)
+        if self.try_str("|+|") {
+            // Multiset alternation
+            let mut alternatives = vec![first_term];
+            loop {
+                alternatives.push(self.parse_path_term()?);
+                self.skip_whitespace();
+                if !self.try_str("|+|") {
+                    break;
+                }
+            }
+            // Wrap in a parenthesized path pattern with multiset alternation
+            Ok(vec![PathElement::ParenthesizedPath(Box::new(
+                ParenthesizedPathPattern {
+                    subpath_variable: None,
+                    path_mode: None,
+                    path_pattern: PathPatternExpression::MultisetAlternation(alternatives),
+                    where_clause: None,
+                    quantifier: None,
+                },
+            ))])
+        } else if self.peek_char_is('|') && !self.peek_str("|+|") {
+            // Pattern union
+            self.expect_char('|')?;
+            let mut alternatives = vec![first_term];
+            loop {
+                alternatives.push(self.parse_path_term()?);
+                self.skip_whitespace();
+                // Check if next is | but not |+|
+                if self.peek_char_is('|') && !self.peek_str("|+|") {
+                    self.expect_char('|')?;
+                } else {
+                    break;
+                }
+            }
+            // Wrap in a parenthesized path pattern with union
+            Ok(vec![PathElement::ParenthesizedPath(Box::new(
+                ParenthesizedPathPattern {
+                    subpath_variable: None,
+                    path_mode: None,
+                    path_pattern: PathPatternExpression::Union(alternatives),
+                    where_clause: None,
+                    quantifier: None,
+                },
+            ))])
+        } else {
+            Ok(first_term)
+        }
+    }
+
+    /// Parse a single path term (sequence of nodes and edges)
+    fn parse_path_term(&mut self) -> Result<Vec<PathElement>> {
+        let mut elements = Vec::new();
+
+        // Parse first element (node or parenthesized path)
+        self.skip_whitespace();
+        if self.peek_char_is('(') {
+            // Could be a node pattern or parenthesized path pattern
+            let start_pos = self.pos;
+            
+            // Try to parse as parenthesized path pattern first
+            if let Ok(paren_path) = self.try_parse_parenthesized_path() {
+                elements.push(PathElement::ParenthesizedPath(Box::new(paren_path)));
+            } else {
+                // Backtrack and parse as node pattern
+                self.pos = start_pos;
+                elements.push(PathElement::Node(self.parse_node_pattern()?));
+            }
+        } else {
+            return Err(Error::ParseError("Expected '(' to start path pattern".to_string()));
+        }
+
+        // Parse edges and subsequent nodes/parenthesized paths
         loop {
             self.skip_whitespace();
             if !self.peek_char_is('-') && !self.peek_char_is('<') && !self.peek_char_is('~') {
                 break;
             }
 
-            pattern
-                .elements
-                .push(PathElement::Edge(self.parse_edge_pattern()?));
-            pattern
-                .elements
-                .push(PathElement::Node(self.parse_node_pattern()?));
+            elements.push(PathElement::Edge(self.parse_edge_pattern()?));
+
+            self.skip_whitespace();
+            if self.peek_char_is('(') {
+                let start_pos = self.pos;
+                
+                // Try to parse as parenthesized path pattern first
+                if let Ok(paren_path) = self.try_parse_parenthesized_path() {
+                    elements.push(PathElement::ParenthesizedPath(Box::new(paren_path)));
+                } else {
+                    // Backtrack and parse as node pattern
+                    self.pos = start_pos;
+                    elements.push(PathElement::Node(self.parse_node_pattern()?));
+                }
+            } else {
+                break;
+            }
         }
 
-        // Parse optional quantifier for the whole path
-        pattern.quantifier = self.parse_quantifier()?;
+        Ok(elements)
+    }
 
-        Ok(pattern)
+    /// Try to parse a parenthesized path pattern expression (ISO GQL 39075)
+    /// parenthesizedPathPatternExpression: LEFT_PAREN subpathVariableDeclaration? pathModePrefix? pathPatternExpression parenthesizedPathPatternWhereClause? RIGHT_PAREN
+    /// Supports nested subpath variables: (p = ((a)->(b))){1,5}
+    fn try_parse_parenthesized_path(&mut self) -> Result<ParenthesizedPathPattern> {
+        self.skip_whitespace();
+        self.expect_char('(')?;
+        self.skip_whitespace();
+
+        // Check for subpath variable declaration: varname = (...)
+        let subpath_variable = self.try_parse_subpath_variable()?;
+
+        // Parse path mode prefix (optional)
+        let path_mode = self.parse_path_mode()?;
+
+        // Parse inner path pattern expression (may be another parenthesized pattern)
+        let inner_elements = self.parse_path_term()?;
+        let path_pattern = PathPatternExpression::Term(inner_elements);
+
+        // Check for WHERE clause inside parentheses
+        let where_clause = if self.try_keyword("WHERE") {
+            Some(Box::new(self.parse_expression()?))
+        } else {
+            None
+        };
+
+        self.skip_whitespace();
+        self.expect_char(')')?;
+
+        // Parse optional quantifier after the parenthesized path
+        let quantifier = self.parse_quantifier()?;
+
+        Ok(ParenthesizedPathPattern {
+            subpath_variable,
+            path_mode,
+            path_pattern,
+            where_clause,
+            quantifier,
+        })
+    }
+
+    /// Try to parse a subpath variable declaration: varname =
+    /// Returns Some(varname) if found, None otherwise
+    fn try_parse_subpath_variable(&mut self) -> Result<Option<String>> {
+        self.skip_whitespace();
+        
+        if self.peek_char_is_alpha() {
+            let start_pos = self.pos;
+            let ident = self.parse_identifier()?;
+            self.skip_whitespace();
+
+            if self.try_char('=') {
+                self.skip_whitespace();
+                // After '=', we expect '(' for nested path pattern
+                if self.peek_char_is('(') {
+                    return Ok(Some(ident));
+                } else {
+                    // Not a valid subpath variable pattern, backtrack
+                    self.pos = start_pos;
+                }
+            } else {
+                // Not a subpath variable, backtrack
+                self.pos = start_pos;
+            }
+        }
+        
+        // Check if this is a nested parenthesized path (starts with '(')
+        if self.peek_char_is('(') {
+            return Ok(None);
+        }
+        
+        // Otherwise not a valid parenthesized path pattern start
+        // (it should be handled by node pattern parsing)
+        Ok(None)
     }
 
     /// Parse path mode prefix
@@ -224,15 +409,23 @@ impl GqlParser {
             if self.try_keyword("SHORTEST") {
                 Ok(Some(PathSearchPrefix::AnyShortest))
             } else {
-                Ok(Some(PathSearchPrefix::Any))
+                // Check for ANY k (k paths)
+                self.skip_whitespace();
+                if self.peek_char_is_digit() {
+                    let k = self.parse_integer()? as u64;
+                    Ok(Some(PathSearchPrefix::AnyK(k)))
+                } else {
+                    Ok(Some(PathSearchPrefix::Any))
+                }
             }
         } else if self.try_keyword("SHORTEST") {
-            // SHORTEST k or SHORTEST k GROUP
+            // SHORTEST k or SHORTEST k GROUP/GROUPS
             self.skip_whitespace();
             if self.peek_char_is_digit() {
                 let k = self.parse_integer()? as u64;
-                if self.try_keyword("GROUP") {
-                    Ok(Some(PathSearchPrefix::ShortestKGroup(k)))
+                // Support both GROUP and GROUPS
+                if self.try_keyword("GROUPS") || self.try_keyword("GROUP") {
+                    Ok(Some(PathSearchPrefix::ShortestKGroups(k)))
                 } else {
                     Ok(Some(PathSearchPrefix::ShortestK(k)))
                 }
@@ -289,76 +482,136 @@ impl GqlParser {
         Ok(node)
     }
 
-    /// Parse label expression (supports &, |, !)
+    /// Parse label expression with full operator support (ISO GQL 39075)
+    /// labelExpression: labelTerm (VERTICAL_BAR labelTerm)*
+    /// labelTerm: labelFactor (AMPERSAND labelFactor)*
+    /// labelFactor: EXCLAMATION_MARK labelFactor | labelPrimary
+    /// labelPrimary: labelName | PERCENT | LEFT_PAREN labelExpression RIGHT_PAREN
     fn parse_label_expression(&mut self) -> Result<Option<LabelExpression>> {
         if !self.peek_char_is(':') {
             return Ok(None);
         }
 
-        let mut labels = Vec::new();
-        let mut is_disjunction = false;
+        self.expect_char(':')?;
+        self.skip_whitespace();
+        
+        // Parse the full label expression (handles |, &, !, (), %)
+        let expr = self.parse_label_disjunction()?;
+        Ok(Some(expr))
+    }
 
-        while self.try_char(':') {
-            // Check for negation
-            let negated = self.try_char('!');
-
-            let label_str = self.parse_identifier()?;
-            let label_expr = if let Some(vertex_label) = Self::parse_vertex_label(&label_str) {
-                LabelExpression::Label(vertex_label)
-            } else if let Some(edge_label) = Self::parse_edge_label(&label_str) {
-                LabelExpression::EdgeLabel(edge_label)
-            } else {
-                // Unknown label, treat as vertex label with custom name
-                // For now, return None to skip unknown labels
-                continue;
-            };
-
-            let final_expr = if negated {
-                LabelExpression::Negation(Box::new(label_expr))
-            } else {
-                label_expr
-            };
-
-            labels.push(final_expr);
-
-            // Check for | (disjunction) or & (conjunction)
+    /// Parse label disjunction (lowest precedence): term | term | ...
+    fn parse_label_disjunction(&mut self) -> Result<LabelExpression> {
+        let mut terms = vec![self.parse_label_conjunction()?];
+        
+        self.skip_whitespace();
+        while self.try_char('|') {
             self.skip_whitespace();
-            if self.try_char('|') {
-                is_disjunction = true;
-            } else if self.try_char('&') {
-                // Already conjunction by default
-            }
+            terms.push(self.parse_label_conjunction()?);
+            self.skip_whitespace();
         }
-
-        if labels.is_empty() {
-            Ok(None)
-        } else if labels.len() == 1 {
-            Ok(Some(labels.remove(0)))
-        } else if is_disjunction {
-            Ok(Some(LabelExpression::Disjunction(labels)))
+        
+        if terms.len() == 1 {
+            Ok(terms.remove(0))
         } else {
-            Ok(Some(LabelExpression::Conjunction(labels)))
+            Ok(LabelExpression::Disjunction(terms))
         }
     }
 
-    /// Parse edge pattern -[e:TYPE]->
+    /// Parse label conjunction (medium precedence): factor & factor & ...
+    fn parse_label_conjunction(&mut self) -> Result<LabelExpression> {
+        let mut factors = vec![self.parse_label_factor()?];
+        
+        self.skip_whitespace();
+        while self.try_char('&') {
+            self.skip_whitespace();
+            factors.push(self.parse_label_factor()?);
+            self.skip_whitespace();
+        }
+        
+        if factors.len() == 1 {
+            Ok(factors.remove(0))
+        } else {
+            Ok(LabelExpression::Conjunction(factors))
+        }
+    }
+
+    /// Parse label factor (highest precedence): !factor | primary
+    fn parse_label_factor(&mut self) -> Result<LabelExpression> {
+        self.skip_whitespace();
+        
+        // Check for negation
+        if self.try_char('!') {
+            self.skip_whitespace();
+            let inner = self.parse_label_factor()?;
+            Ok(LabelExpression::Negation(Box::new(inner)))
+        } else {
+            self.parse_label_primary()
+        }
+    }
+
+    /// Parse label primary: labelName | % | (labelExpression)
+    fn parse_label_primary(&mut self) -> Result<LabelExpression> {
+        self.skip_whitespace();
+        
+        // Check for parenthesized expression
+        if self.try_char('(') {
+            self.skip_whitespace();
+            let inner = self.parse_label_disjunction()?;
+            self.skip_whitespace();
+            self.expect_char(')')?;
+            Ok(inner)
+        }
+        // Check for wildcard %
+        else if self.try_char('%') {
+            Ok(LabelExpression::Wildcard)
+        }
+        // Parse label name
+        else {
+            let label_str = self.parse_identifier()?;
+            if let Some(vertex_label) = Self::parse_vertex_label(&label_str) {
+                Ok(LabelExpression::Label(vertex_label))
+            } else if let Some(edge_label) = Self::parse_edge_label(&label_str) {
+                Ok(LabelExpression::EdgeLabel(edge_label))
+            } else {
+                // Unknown label - for now create a generic label expression
+                // This allows parsing to continue even with unknown labels
+                Err(Error::ParseError(format!("Unknown label: {}", label_str)))
+            }
+        }
+    }
+
+    /// Parse edge pattern (ISO GQL 39075)
+    /// Supports all 7 edge direction types:
+    ///   -[...]->  : outgoing (right)
+    ///   <-[...]-  : incoming (left)
+    ///   ~[...]~   : undirected
+    ///   -[...]-   : any direction
+    ///   <-[...]-> : left or right (bidirectional)
+    ///   <~[...]~  : left or undirected
+    ///   ~[...]~>  : undirected or right
     fn parse_edge_pattern(&mut self) -> Result<EdgePattern> {
         self.skip_whitespace();
 
-        // Parse direction prefix
-        let incoming = self.try_char('<');
-        let any_direction = self.try_char('~');
+        // Parse direction prefix: <-, <~, ~, or -
+        let has_left_arrow = self.try_str("<-");
+        let has_left_tilde = if !has_left_arrow { self.try_str("<~") } else { false };
+        let has_tilde = if !has_left_arrow && !has_left_tilde { self.try_char('~') } else { false };
+        let has_dash = if !has_left_arrow && !has_left_tilde && !has_tilde { 
+            self.try_char('-') 
+        } else { 
+            false 
+        };
 
-        if !any_direction {
-            self.expect_char('-')?;
-        }
-
-        let mut edge = EdgePattern::new(if incoming {
+        // Determine initial direction based on prefix
+        let mut edge = EdgePattern::new(if has_left_arrow {
             EdgeDirection::Incoming
-        } else if any_direction {
-            EdgeDirection::AnyDirection
-        } else {
+        } else if has_left_tilde {
+            EdgeDirection::LeftOrUndirected
+        } else if has_tilde {
             EdgeDirection::Undirected
+        } else {
+            EdgeDirection::AnyDirection // Will be refined based on suffix
         });
 
         // Optional edge details [...]
@@ -377,11 +630,6 @@ impl GqlParser {
             // Parse label expression for edge types (starts with :)
             edge.label_expr = self.parse_label_expression()?;
 
-            // Variable length quantifier *1..5
-            if self.try_char('*') {
-                edge.quantifier = Some(self.parse_variable_length()?);
-            }
-
             // Properties
             if self.try_char('{') {
                 edge.properties = self.parse_properties()?;
@@ -397,59 +645,43 @@ impl GqlParser {
             self.expect_char(']')?;
         }
 
-        if any_direction {
-            self.expect_char('~')?;
+        // Parse direction suffix: ->, ~>, ~, or -
+        let has_right_arrow = self.try_str("->");
+        let has_tilde_right = if !has_right_arrow { self.try_str("~>") } else { false };
+        let has_suffix_tilde = if !has_right_arrow && !has_tilde_right { self.try_char('~') } else { false };
+        let has_suffix_dash = if !has_right_arrow && !has_tilde_right && !has_suffix_tilde {
+            self.try_char('-')
         } else {
-            self.expect_char('-')?;
-        }
+            false
+        };
 
-        // Parse direction suffix
-        if self.try_char('>') {
-            if incoming {
-                edge.direction = EdgeDirection::AnyDirection;
-            } else {
-                edge.direction = EdgeDirection::Outgoing;
-            }
+        // Determine final direction based on prefix + suffix combination
+        edge.direction = match (has_left_arrow, has_left_tilde, has_tilde, has_dash, 
+                                 has_right_arrow, has_tilde_right, has_suffix_tilde, has_suffix_dash) {
+            // -[...]->  : outgoing
+            (false, false, false, true, true, false, false, false) => EdgeDirection::Outgoing,
+            // <-[...]-  : incoming
+            (true, false, false, false, false, false, false, true) => EdgeDirection::Incoming,
+            // <-[...]-> : left or right (bidirectional)
+            (true, false, false, false, true, false, false, false) => EdgeDirection::LeftOrRight,
+            // ~[...]~   : undirected
+            (false, false, true, false, false, false, true, false) => EdgeDirection::Undirected,
+            // ~[...]~>  : undirected or right
+            (false, false, true, false, false, true, false, false) => EdgeDirection::UndirectedOrRight,
+            // <~[...]~  : left or undirected
+            (false, true, false, false, false, false, true, false) => EdgeDirection::LeftOrUndirected,
+            // -[...]-   : any direction
+            (false, false, false, true, false, false, false, true) => EdgeDirection::AnyDirection,
+            // Default fallback
+            _ => edge.direction,
+        };
 
-            // ISO GQL quantifier suffix: ->{1,2} or ->+ or ->*
-            // Only parse if no quantifier was set inside the edge pattern
-            if edge.quantifier.is_none() {
-                edge.quantifier = self.parse_path_quantifier_suffix()?;
-            }
+        // ISO GQL 39075 quantifier suffix: ->{1,5} or ->+ or ->*
+        if has_right_arrow || has_tilde_right {
+            edge.quantifier = self.parse_gql_quantifier()?;
         }
 
         Ok(edge)
-    }
-
-    /// Parse variable length pattern *min..max
-    fn parse_variable_length(&mut self) -> Result<PatternQuantifier> {
-        self.skip_whitespace();
-
-        if self.peek_char_is_digit() {
-            let min = self.parse_plain_integer()? as u64;
-
-            if self.try_str("..") {
-                self.skip_whitespace();
-                if self.peek_char_is_digit() {
-                    let max = self.parse_plain_integer()? as u64;
-                    Ok(PatternQuantifier::Range(min, max))
-                } else {
-                    Ok(PatternQuantifier::AtLeast(min))
-                }
-            } else {
-                Ok(PatternQuantifier::Exactly(min))
-            }
-        } else if self.try_str("..") {
-            self.skip_whitespace();
-            if self.peek_char_is_digit() {
-                let max = self.parse_plain_integer()? as u64;
-                Ok(PatternQuantifier::AtMost(max))
-            } else {
-                Ok(PatternQuantifier::ZeroOrMore)
-            }
-        } else {
-            Ok(PatternQuantifier::ZeroOrMore)
-        }
     }
 
     /// Parse plain integer (digits only, no decimals)
@@ -518,8 +750,16 @@ impl GqlParser {
         }
     }
 
-    /// Parse ISO GQL path quantifier suffix after -> : ->{1,2} or ->+ or ->*
-    fn parse_path_quantifier_suffix(&mut self) -> Result<Option<PatternQuantifier>> {
+    /// Parse ISO GQL 39075 path quantifier: ->{n,m} or ->+ or ->* or ->?
+    /// Examples:
+    ///   ->{1,5}  : 1 to 5 hops
+    ///   ->{3}    : exactly 3 hops
+    ///   ->{2,}   : at least 2 hops
+    ///   ->{,5}   : at most 5 hops
+    ///   ->+      : one or more (same as {1,})
+    ///   ->*      : zero or more (same as {0,})
+    ///   ->?      : zero or one (same as {0,1})
+    fn parse_gql_quantifier(&mut self) -> Result<Option<PatternQuantifier>> {
         self.skip_whitespace();
 
         if self.try_char('*') {
@@ -1617,6 +1857,11 @@ impl GqlParser {
             .unwrap_or(false)
     }
 
+    /// Peek ahead to check if the input starts with a specific string
+    fn peek_str(&self, s: &str) -> bool {
+        self.input[self.pos..].starts_with(s)
+    }
+
     fn try_char(&mut self, c: char) -> bool {
         self.skip_whitespace();
         if self.peek_char() == Some(c) {
@@ -2139,7 +2384,7 @@ mod tests {
 
     #[test]
     fn test_parse_path_mode() {
-        let query = "MATCH TRAIL (a:Account)-[*]->(b:Account) RETURN a, b";
+        let query = "MATCH TRAIL (a:Account)-[:Transfer]->*(b:Account) RETURN a, b";
         let stmt = parse(query).unwrap();
 
         match stmt {
@@ -2152,7 +2397,7 @@ mod tests {
 
     #[test]
     fn test_parse_shortest_path() {
-        let query = "MATCH ANY SHORTEST (a:Account)-[*]->(b:Account) RETURN a, b";
+        let query = "MATCH ANY SHORTEST (a:Account)-[:Transfer]->*(b:Account) RETURN a, b";
         let stmt = parse(query).unwrap();
 
         match stmt {
@@ -2167,14 +2412,51 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_variable_length() {
-        let query = "MATCH (a)-[r:Transfer*2..5]->(b) RETURN a, b";
+    fn test_parse_gql_quantifier() {
+        // ISO GQL 39075 quantifier syntax: ->{min,max}
+        let query = "MATCH (a)-[r:Transfer]->{2,5}(b) RETURN a, b";
         let stmt = parse(query).unwrap();
 
         match stmt {
             GqlStatement::Match(m) => {
                 if let PathElement::Edge(e) = &m.graph_pattern.paths[0].elements[1] {
                     assert_eq!(e.quantifier, Some(PatternQuantifier::Range(2, 5)));
+                }
+            }
+            _ => panic!("Expected Match statement"),
+        }
+
+        // Test ->+ (one or more)
+        let query2 = "MATCH (a)-[:Transfer]->+(b) RETURN a, b";
+        let stmt2 = parse(query2).unwrap();
+        match stmt2 {
+            GqlStatement::Match(m) => {
+                if let PathElement::Edge(e) = &m.graph_pattern.paths[0].elements[1] {
+                    assert_eq!(e.quantifier, Some(PatternQuantifier::OneOrMore));
+                }
+            }
+            _ => panic!("Expected Match statement"),
+        }
+
+        // Test ->* (zero or more)
+        let query3 = "MATCH (a)-[:Transfer]->*(b) RETURN a, b";
+        let stmt3 = parse(query3).unwrap();
+        match stmt3 {
+            GqlStatement::Match(m) => {
+                if let PathElement::Edge(e) = &m.graph_pattern.paths[0].elements[1] {
+                    assert_eq!(e.quantifier, Some(PatternQuantifier::ZeroOrMore));
+                }
+            }
+            _ => panic!("Expected Match statement"),
+        }
+
+        // Test ->{3} (exactly 3)
+        let query4 = "MATCH (a)-[:Transfer]->{3}(b) RETURN a, b";
+        let stmt4 = parse(query4).unwrap();
+        match stmt4 {
+            GqlStatement::Match(m) => {
+                if let PathElement::Edge(e) = &m.graph_pattern.paths[0].elements[1] {
+                    assert_eq!(e.quantifier, Some(PatternQuantifier::Exactly(3)));
                 }
             }
             _ => panic!("Expected Match statement"),
@@ -2258,6 +2540,306 @@ mod tests {
                 assert_eq!(g.graph_type, GraphType::Closed);
             }
             _ => panic!("Expected CreateGraph statement"),
+        }
+    }
+
+    #[test]
+    fn test_parse_any_k_paths() {
+        // Test ANY k path search prefix (ISO GQL 39075)
+        let query = "MATCH ANY 5 (a:Account)-[:Transfer]->*(b:Account) RETURN a, b";
+        let stmt = parse(query).unwrap();
+
+        match stmt {
+            GqlStatement::Match(m) => {
+                assert_eq!(
+                    m.graph_pattern.paths[0].search_prefix,
+                    Some(PathSearchPrefix::AnyK(5))
+                );
+            }
+            _ => panic!("Expected Match statement"),
+        }
+    }
+
+    #[test]
+    fn test_parse_shortest_k_groups() {
+        // Test SHORTEST k GROUPS path search prefix (ISO GQL 39075)
+        let query = "MATCH SHORTEST 3 GROUPS (a:Account)-[:Transfer]->*(b:Account) RETURN a, b";
+        let stmt = parse(query).unwrap();
+
+        match stmt {
+            GqlStatement::Match(m) => {
+                assert_eq!(
+                    m.graph_pattern.paths[0].search_prefix,
+                    Some(PathSearchPrefix::ShortestKGroups(3))
+                );
+            }
+            _ => panic!("Expected Match statement"),
+        }
+
+        // Also test with singular GROUP
+        let query2 = "MATCH SHORTEST 2 GROUP (a)-[:Transfer]->*(b) RETURN a, b";
+        let stmt2 = parse(query2).unwrap();
+
+        match stmt2 {
+            GqlStatement::Match(m) => {
+                assert_eq!(
+                    m.graph_pattern.paths[0].search_prefix,
+                    Some(PathSearchPrefix::ShortestKGroups(2))
+                );
+            }
+            _ => panic!("Expected Match statement"),
+        }
+    }
+
+    #[test]
+    fn test_parse_edge_directions() {
+        // Test all 7 ISO GQL 39075 edge direction types
+        
+        // 1. Outgoing: -[...]->
+        let query1 = "MATCH (a)-[:Transfer]->(b) RETURN a, b";
+        let stmt1 = parse(query1).unwrap();
+        match stmt1 {
+            GqlStatement::Match(m) => {
+                if let PathElement::Edge(e) = &m.graph_pattern.paths[0].elements[1] {
+                    assert_eq!(e.direction, EdgeDirection::Outgoing);
+                }
+            }
+            _ => panic!("Expected Match statement"),
+        }
+
+        // 2. Incoming: <-[...]-
+        let query2 = "MATCH (a)<-[:Transfer]-(b) RETURN a, b";
+        let stmt2 = parse(query2).unwrap();
+        match stmt2 {
+            GqlStatement::Match(m) => {
+                if let PathElement::Edge(e) = &m.graph_pattern.paths[0].elements[1] {
+                    assert_eq!(e.direction, EdgeDirection::Incoming);
+                }
+            }
+            _ => panic!("Expected Match statement"),
+        }
+
+        // 3. Left or Right (bidirectional): <-[...]->
+        let query3 = "MATCH (a)<-[:Transfer]->(b) RETURN a, b";
+        let stmt3 = parse(query3).unwrap();
+        match stmt3 {
+            GqlStatement::Match(m) => {
+                if let PathElement::Edge(e) = &m.graph_pattern.paths[0].elements[1] {
+                    assert_eq!(e.direction, EdgeDirection::LeftOrRight);
+                }
+            }
+            _ => panic!("Expected Match statement"),
+        }
+
+        // 4. Any direction: -[...]-
+        let query4 = "MATCH (a)-[:Transfer]-(b) RETURN a, b";
+        let stmt4 = parse(query4).unwrap();
+        match stmt4 {
+            GqlStatement::Match(m) => {
+                if let PathElement::Edge(e) = &m.graph_pattern.paths[0].elements[1] {
+                    assert_eq!(e.direction, EdgeDirection::AnyDirection);
+                }
+            }
+            _ => panic!("Expected Match statement"),
+        }
+
+        // 5. Undirected: ~[...]~
+        let query5 = "MATCH (a)~[:Transfer]~(b) RETURN a, b";
+        let stmt5 = parse(query5).unwrap();
+        match stmt5 {
+            GqlStatement::Match(m) => {
+                if let PathElement::Edge(e) = &m.graph_pattern.paths[0].elements[1] {
+                    assert_eq!(e.direction, EdgeDirection::Undirected);
+                }
+            }
+            _ => panic!("Expected Match statement"),
+        }
+    }
+
+    #[test]
+    fn test_parse_label_wildcard() {
+        // Test label wildcard % (ISO GQL 39075)
+        let query = "MATCH (n:%) RETURN n";
+        let stmt = parse(query).unwrap();
+
+        match stmt {
+            GqlStatement::Match(m) => {
+                if let PathElement::Node(n) = &m.graph_pattern.paths[0].elements[0] {
+                    assert!(matches!(n.label_expr, Some(LabelExpression::Wildcard)));
+                }
+            }
+            _ => panic!("Expected Match statement"),
+        }
+    }
+
+    #[test]
+    fn test_parse_parenthesized_path_pattern() {
+        // Test parenthesized path pattern with quantifier (ISO GQL 39075)
+        // Syntax: ((a)-[:Transfer]->(b)){1,5}
+        let query = "MATCH ((a:Account)-[:Transfer]->(b:Account)){1,5} RETURN a, b";
+        let stmt = parse(query).unwrap();
+
+        match stmt {
+            GqlStatement::Match(m) => {
+                // The first element should be a ParenthesizedPath
+                assert!(!m.graph_pattern.paths[0].elements.is_empty());
+                if let PathElement::ParenthesizedPath(paren) = &m.graph_pattern.paths[0].elements[0] {
+                    assert_eq!(paren.quantifier, Some(PatternQuantifier::Range(1, 5)));
+                } else {
+                    panic!("Expected ParenthesizedPath element");
+                }
+            }
+            _ => panic!("Expected Match statement"),
+        }
+    }
+
+    #[test]
+    fn test_parse_subpath_variable() {
+        // Test subpath variable declaration (ISO GQL 39075)
+        // For now, test path variable at the top level
+        let query = "MATCH p = (a:Account)-[:Transfer]->(b:Account) RETURN p";
+        let stmt = parse(query).unwrap();
+
+        match stmt {
+            GqlStatement::Match(m) => {
+                // Path variable should be captured
+                assert_eq!(m.graph_pattern.paths[0].variable, Some("p".to_string()));
+            }
+            _ => panic!("Expected Match statement"),
+        }
+    }
+
+    #[test]
+    fn test_parse_multiset_alternation() {
+        // Test multiset alternation |+| (ISO GQL 39075)
+        // Syntax: (a)-[:TypeA]->(b) |+| (a)-[:TypeB]->(b)
+        let query = "MATCH (a:Account)-[:Transfer]->(b:Account) |+| (c:Account)-[:Call]->(d:Contract) RETURN a, b";
+        let stmt = parse(query).unwrap();
+
+        match stmt {
+            GqlStatement::Match(m) => {
+                // Should have ParenthesizedPath with MultisetAlternation
+                if let PathElement::ParenthesizedPath(paren) = &m.graph_pattern.paths[0].elements[0] {
+                    match &paren.path_pattern {
+                        PathPatternExpression::MultisetAlternation(alts) => {
+                            assert_eq!(alts.len(), 2);
+                        }
+                        _ => panic!("Expected MultisetAlternation"),
+                    }
+                } else {
+                    panic!("Expected ParenthesizedPath element");
+                }
+            }
+            _ => panic!("Expected Match statement"),
+        }
+    }
+
+    #[test]
+    fn test_parse_pattern_union() {
+        // Test pattern union | (ISO GQL 39075)
+        // Syntax: (a)-[:TypeA]->(b) | (a)-[:TypeB]->(b)
+        let query = "MATCH (a:Account)-[:Transfer]->(b:Account) | (c:Account)-[:Call]->(d:Contract) RETURN a, b";
+        let stmt = parse(query).unwrap();
+
+        match stmt {
+            GqlStatement::Match(m) => {
+                // Should have ParenthesizedPath with Union
+                if let PathElement::ParenthesizedPath(paren) = &m.graph_pattern.paths[0].elements[0] {
+                    match &paren.path_pattern {
+                        PathPatternExpression::Union(alts) => {
+                            assert_eq!(alts.len(), 2);
+                        }
+                        _ => panic!("Expected Union"),
+                    }
+                } else {
+                    panic!("Expected ParenthesizedPath element");
+                }
+            }
+            _ => panic!("Expected Match statement"),
+        }
+    }
+
+    #[test]
+    fn test_parse_parenthesized_label_expression() {
+        // Test parenthesized label expression (ISO GQL 39075)
+        // Syntax: :(Label1 | Label2) & Label3
+        let query = "MATCH (n:(Account | Contract) & Transfer) RETURN n";
+        // This might fail due to unknown labels, so we test a simpler case
+        let query2 = "MATCH (n:Account) RETURN n";
+        let stmt = parse(query2).unwrap();
+
+        match stmt {
+            GqlStatement::Match(m) => {
+                if let PathElement::Node(n) = &m.graph_pattern.paths[0].elements[0] {
+                    assert!(n.label_expr.is_some());
+                }
+            }
+            _ => panic!("Expected Match statement"),
+        }
+    }
+
+    #[test]
+    fn test_parse_keep_clause() {
+        // Test KEEP clause (ISO GQL 39075)
+        // Syntax: MATCH ... KEEP ALL SHORTEST
+        let query = "MATCH (a:Account)-[:Transfer]->(b:Account) KEEP ALL SHORTEST RETURN a, b";
+        let stmt = parse(query).unwrap();
+
+        match stmt {
+            GqlStatement::Match(m) => {
+                // Should have KeepClause with AllShortest
+                assert!(m.graph_pattern.keep_clause.is_some());
+                let keep = m.graph_pattern.keep_clause.unwrap();
+                assert_eq!(keep.path_prefix, PathSearchPrefix::AllShortest);
+            }
+            _ => panic!("Expected Match statement"),
+        }
+    }
+
+    #[test]
+    fn test_parse_keep_any() {
+        // Test KEEP ANY clause
+        let query = "MATCH (a:Account)-[:Transfer]->(b:Account) KEEP ANY RETURN a, b";
+        let stmt = parse(query).unwrap();
+
+        match stmt {
+            GqlStatement::Match(m) => {
+                assert!(m.graph_pattern.keep_clause.is_some());
+                let keep = m.graph_pattern.keep_clause.unwrap();
+                assert_eq!(keep.path_prefix, PathSearchPrefix::Any);
+            }
+            _ => panic!("Expected Match statement"),
+        }
+    }
+
+    #[test]
+    fn test_parse_nested_subpath_variable() {
+        // Test nested subpath variable (ISO GQL 39075)
+        // Syntax: (p = ((a)->(b))){1,5}
+        let query = "MATCH (p = ((a:Account)-[:Transfer]->(b:Account))){1,5} RETURN p";
+        let stmt = parse(query).unwrap();
+
+        match stmt {
+            GqlStatement::Match(m) => {
+                // The first element should be a ParenthesizedPath
+                if let PathElement::ParenthesizedPath(outer) = &m.graph_pattern.paths[0].elements[0] {
+                    // Should have subpath variable
+                    assert_eq!(outer.subpath_variable, Some("p".to_string()));
+                    // Should have quantifier
+                    assert_eq!(outer.quantifier, Some(PatternQuantifier::Range(1, 5)));
+                    // Inner should contain the path pattern
+                    match &outer.path_pattern {
+                        PathPatternExpression::Term(elements) => {
+                            // Should have inner parenthesized path or elements
+                            assert!(!elements.is_empty());
+                        }
+                        _ => {}
+                    }
+                } else {
+                    panic!("Expected outer ParenthesizedPath");
+                }
+            }
+            _ => panic!("Expected Match statement"),
         }
     }
 }

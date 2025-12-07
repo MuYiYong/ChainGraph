@@ -60,8 +60,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     println!();
 
-    // 路径查询
-    let query3 = "MATCH SHORTEST (a:Account)-[*1..5]->(b:Account) WHERE a <> b RETURN a, b LIMIT 3";
+    // 路径查询 (ISO GQL 39075 量词语法)
+    let query3 = "MATCH SHORTEST (a:Account)-[:Transfer]->{1,5}(b:Account) WHERE a <> b RETURN a, b LIMIT 3";
     println!("查询: {}", query3);
     match GqlParser::new(query3).parse() {
         Ok(stmt) => {

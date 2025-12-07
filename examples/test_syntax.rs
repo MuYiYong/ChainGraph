@@ -19,16 +19,18 @@ fn main() {
         ],
     );
 
-    // 量化路径模式 (ISO GQL Quantified Path)
+    // 量化路径模式 (ISO GQL 39075 Quantified Path)
     test_category(
-        "量化路径模式",
+        "量化路径模式 (ISO GQL 39075)",
         vec![
             "MATCH (v)-[e]->{1,2}(v2) RETURN v2",
-            "MATCH (v)-[e]->{1,5}(v2) RETURN v2",
+            "MATCH (v)-[e:Transfer]->{1,5}(v2) RETURN v2",
             "MATCH (v)-[e]->+(v2) RETURN v2",
             "MATCH (v)-[e]->*(v2) RETURN v2",
-            "MATCH (v)-[e*1..2]->(v2) RETURN v2",
-            "MATCH (v)-[e:Transfer*1..5]->(v2) RETURN v2",
+            "MATCH (v)-[e]->?(v2) RETURN v2",
+            "MATCH (v)-[:Transfer]->{3}(v2) RETURN v2",
+            "MATCH (v)-[:Transfer]->{2,}(v2) RETURN v2",
+            "MATCH (v)-[:Transfer]->{,5}(v2) RETURN v2",
         ],
     );
 
@@ -36,8 +38,8 @@ fn main() {
     test_category(
         "路径搜索前缀",
         vec![
-            "MATCH ANY SHORTEST (a)-[*]->(b) RETURN a, b",
-            "MATCH ALL (a)-[*1..3]->(b) RETURN a, b",
+            "MATCH ANY SHORTEST (a)-[:Transfer]->*(b) RETURN a, b",
+            "MATCH ALL (a)-[:Transfer]->{1,3}(b) RETURN a, b",
         ],
     );
 
