@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["ChainGraph Team"]
 description = "A high-performance graph database for Web3 blockchain tracing with SSD-optimized storage"
 license = "Apache-2.0"
-repository = "https://github.com/vesoft/chaingraph"
+repository = "https://github.com/MuYiYong/ChainGraph"
 keywords = ["graph", "database", "blockchain", "web3", "tracing"]
 categories = ["database", "data-structures", "cryptography::cryptocurrencies"]
 
