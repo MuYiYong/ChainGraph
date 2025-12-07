@@ -1,0 +1,21 @@
+# Docker 构建产物
+target/
+**/*.rs.bk
+
+# 数据文件
+/data/
+/test_data/
+/import/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+._*
+
+# 日志
+*.log

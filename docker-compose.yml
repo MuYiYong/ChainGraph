@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  chaingraph:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: chaingraph:latest
+    container_name: chaingraph
+    ports:
+      - "8080:8080"
+    volumes:
+      - chaingraph-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    environment:
+      - RUST_LOG=info
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
+  # CLI 工具容器 (按需启动)
+  chaingraph-cli:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: chaingraph:latest
+    container_name: chaingraph-cli
+    volumes:
+      - chaingraph-data:/data
+    entrypoint: ["chaingraph-cli"]
+    command: ["-d", "/data"]
+    stdin_open: true
+    tty: true
+    profiles:
+      - cli
+
+  # 数据导入工具 (按需启动)
+  chaingraph-import:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: chaingraph:latest
+    container_name: chaingraph-import
+    volumes:
+      - chaingraph-data:/data
+      - ./import:/import:ro
+    entrypoint: ["chaingraph-import"]
+    command: ["-d", "/data", "-i", "/import"]
+    profiles:
+      - import
+
+volumes:
+  chaingraph-data:
+    driver: local

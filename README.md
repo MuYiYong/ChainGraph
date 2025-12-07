@@ -30,12 +30,51 @@
 
 ## 🚀 快速开始
 
-### 安装
+### 使用 Docker (推荐)
 
 ```bash
 # 克隆仓库
-git clone https://github.com/your-org/chaingraph.git
-cd chaingraph
+git clone https://github.com/MuYiYong/ChainGraph.git
+cd ChainGraph
+
+# 构建并启动
+docker compose up -d
+
+# 查看日志
+docker compose logs -f
+
+# 使用 CLI
+docker compose run --rm chaingraph-cli
+```
+
+### 使用预构建镜像
+
+```bash
+# 拉取镜像
+docker pull ghcr.io/muyiyong/chaingraph:latest
+
+# 启动服务
+docker run -d \
+  --name chaingraph \
+  -p 8080:8080 \
+  -v chaingraph-data:/data \
+  ghcr.io/muyiyong/chaingraph:latest
+
+# 使用 CLI
+docker run -it --rm \
+  -v chaingraph-data:/data \
+  ghcr.io/muyiyong/chaingraph:latest \
+  chaingraph-cli -d /data
+```
+
+更多 Docker 使用说明请参阅 [DOCKER.md](DOCKER.md)
+
+### 从源码构建 (可选)
+
+```bash
+# 克隆仓库
+git clone https://github.com/MuYiYong/ChainGraph.git
+cd ChainGraph
 
 # 编译
 cargo build --release
