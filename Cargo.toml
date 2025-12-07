@@ -1,0 +1,104 @@
+[package]
+name = "chaingraph"
+version = "0.1.0"
+edition = "2021"
+authors = ["ChainGraph Team"]
+description = "A high-performance graph database for Web3 blockchain tracing with SSD-optimized storage"
+license = "Apache-2.0"
+repository = "https://github.com/vesoft/chaingraph"
+keywords = ["graph", "database", "blockchain", "web3", "tracing"]
+categories = ["database", "data-structures", "cryptography::cryptocurrencies"]
+
+[lib]
+name = "chaingraph"
+path = "src/lib.rs"
+
+[[bin]]
+name = "chaingraph-server"
+path = "src/bin/server.rs"
+
+[[bin]]
+name = "chaingraph-cli"
+path = "src/bin/cli.rs"
+
+[[bin]]
+name = "chaingraph-import"
+path = "src/bin/import.rs"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["full", "fs"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bincode = "1.3"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Collections and data structures
+dashmap = "5.5"
+indexmap = { version = "2.1", features = ["serde"] }
+smallvec = { version = "1.11", features = ["serde"] }
+priority-queue = "1.3"
+
+# Disk storage
+memmap2 = "0.9"              # Memory-mapped files for SSD access
+crc32fast = "1.3"            # Fast CRC for data integrity
+
+# Buffer pool and caching
+lru = "0.12"
+
+# Compression
+lz4_flex = "0.11"            # Fast compression for disk pages
+
+# Web3 specific
+primitive-types = { version = "0.12", features = ["serde"] }
+hex = "0.4"
+
+# CLI and server
+clap = { version = "4.4", features = ["derive"] }
+rustyline = "13.0"
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# UUID for unique IDs
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Parallel processing
+rayon = "1.8"
+crossbeam = "0.8"
+
+# Parking lot for faster locks
+parking_lot = "0.12"
+
+# Byte order for disk format
+byteorder = "1.5"
+
+# CSV for data import
+csv = "1.3"
+
+[dev-dependencies]
+criterion = "0.5"
+tempfile = "3.9"
+tokio-test = "0.4"
+rand = "0.8"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.bench]
+opt-level = 3
+lto = true

@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChainGraph - README</title>
+    <style>
+
+:root {
+    --bg-color: #1a1a2e;
+    --sidebar-bg: #16213e;
+    --content-bg: #0f0f23;
+    --text-color: #e4e4e4;
+    --heading-color: #00d9ff;
+    --link-color: #64b5f6;
+    --code-bg: #2d2d4a;
+    --border-color: #3d3d5c;
+    --table-header-bg: #2a2a4a;
+    --success-color: #4caf50;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+.container {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 280px;
+    background-color: var(--sidebar-bg);
+    border-right: 1px solid var(--border-color);
+    position: fixed;
+    height: 100vh;
+    overflow-y: auto;
+}
+
+.sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: linear-gradient(135deg, #1e3a5f 0%, #16213e 100%);
+}
+
+.sidebar-header h2 {
+    color: var(--heading-color);
+    font-size: 1.2rem;
+}
+
+.sidebar-content {
+    padding: 15px;
+}
+
+.sidebar-content ul {
+    list-style: none;
+}
+
+.sidebar-content li {
+    margin: 5px 0;
+}
+
+.sidebar-content a {
+    color: var(--text-color);
+    text-decoration: none;
+    font-size: 0.9rem;
+    display: block;
+    padding: 5px 10px;
+    border-radius: 5px;
+    transition: all 0.2s;
+}
+
+.sidebar-content a:hover {
+    background-color: var(--code-bg);
+    color: var(--heading-color);
+}
+
+.content {
+    margin-left: 280px;
+    padding: 40px 60px;
+    max-width: 1000px;
+    background-color: var(--content-bg);
+    min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--heading-color);
+    margin: 1.5em 0 0.5em;
+    font-weight: 600;
+}
+
+h1 {
+    font-size: 2.5rem;
+    border-bottom: 2px solid var(--heading-color);
+    padding-bottom: 10px;
+}
+
+h2 {
+    font-size: 1.8rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+h3 {
+    font-size: 1.4rem;
+}
+
+h4 {
+    font-size: 1.2rem;
+}
+
+p {
+    margin: 1em 0;
+}
+
+a {
+    color: var(--link-color);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+code {
+    background-color: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.9em;
+}
+
+pre {
+    background-color: var(--code-bg);
+    padding: 15px 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 1em 0;
+    border: 1px solid var(--border-color);
+}
+
+pre code {
+    background: none;
+    padding: 0;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+}
+
+.table th, .table td {
+    border: 1px solid var(--border-color);
+    padding: 10px 15px;
+    text-align: left;
+}
+
+.table th {
+    background-color: var(--table-header-bg);
+    color: var(--heading-color);
+    font-weight: 600;
+}
+
+.table tr:nth-child(even) {
+    background-color: rgba(45, 45, 74, 0.3);
+}
+
+ul, ol {
+    margin: 1em 0;
+    padding-left: 2em;
+}
+
+li {
+    margin: 0.5em 0;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 2em 0;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+blockquote {
+    border-left: 4px solid var(--heading-color);
+    padding-left: 20px;
+    margin: 1em 0;
+    color: #aaa;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .sidebar {
+        display: none;
+    }
+    .content {
+        margin-left: 0;
+        padding: 20px;
+    }
+}
+
+/* 代码高亮基础样式 */
+.language-gql, .language-sql, .language-bash, .language-rust, .language-json {
+    color: #a8d4ff;
+}
+
+/* 打印样式 */
+@media print {
+    .sidebar {
+        display: none;
+    }
+    .content {
+        margin-left: 0;
+        background: white;
+        color: black;
+    }
+    h1, h2, h3, h4 {
+        color: #333;
+    }
+    pre, code {
+        background-color: #f5f5f5;
+        border: 1px solid #ddd;
+    }
+}
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h2>📖 导航</h2>
+            </div>
+            <div class="sidebar-content" id="toc">
+            </div>
+        </nav>
+        <main class="content">
+<h1 id="chaingraph">ChainGraph</h1>
+
+<p><p align="center"></p>
+<p>  <img src="https://img.shields.io/badge/language-Rust-orange.svg" alt="Rust"></p>
+<p>  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></p>
+<p>  <img src="https://img.shields.io/badge/version-0.1.0-green.svg" alt="Version"></p>
+<p></p></p>
+
+<p><strong>ChainGraph</strong> 是一款专为 Web3 场景设计的高性能图数据库，专注于区块链链路追踪和资金流分析。</p>
+
+<h2 id="-特性">✨ 特性</h2>
+
+<ul>
+<li>🚀 <strong>SSD 优化存储</strong> - 4KB 页面对齐，LRU 缓冲池，支持海量数据存储</li>
+<li>🔗 <strong>Web3 原生类型</strong> - 内置 Address、TxHash、TokenAmount 等区块链类型</li>
+<li>🔍 <strong>链路追踪算法</strong> - 支持最短路径、所有路径、N跳邻居等多种追踪方式</li>
+<li>💧 <strong>最大流分析</strong> - Edmonds-Karp 算法，用于资金流动分析和反洗钱检测</li>
+<li>📝 <strong>ISO GQL 39075 标准</strong> - 完整支持 ISO/IEC 39075 标准的图查询语言</li>
+<li>✅ MATCH 查询：模式匹配、量化路径、路径搜索前缀</li>
+<li>✅ DML 操作：INSERT、UPDATE、DELETE、DETACH DELETE</li>
+<li>✅ DDL 操作：CREATE/DROP GRAPH、CREATE/DROP GRAPH TYPE</li>
+<li>✅ 元数据查询：SHOW GRAPHS/LABELS/PROCEDURES、DESCRIBE GRAPH/LABEL</li>
+<li>✅ 过程调用：CALL/OPTIONAL CALL</li>
+<li>✅ 变量与控制流：LET、FOR、FILTER</li>
+<li>✅ SELECT 查询：DISTINCT、GROUP BY、HAVING、ORDER BY、LIMIT、OFFSET</li>
+<li>✅ 复合查询：UNION、EXCEPT、INTERSECT、OTHERWISE</li>
+<li>✅ 会话管理：SESSION SET/RESET/CLOSE</li>
+<li>✅ 事务控制：START TRANSACTION、COMMIT、ROLLBACK</li>
+<li>📦 <strong>批量数据导入</strong> - 支持 CSV/JSON 格式，多线程并行导入</li>
+<li>🌐 <strong>REST API</strong> - 完整的 HTTP API 服务</li>
+</ul>
+
+<h2 id="-快速开始">🚀 快速开始</h2>
+
+<h3 id="安装">安装</h3>
+
+<pre><code class="language-bash">
+# 克隆仓库
+git clone https://github.com/your-org/chaingraph.git
+cd chaingraph
+
+# 编译
+cargo build --release
+
+# 运行测试
+cargo test
+</code></pre>
+
+<h3 id="启动服务器">启动服务器</h3>
+
+<pre><code class="language-bash">
+# 使用默认配置启动
+./target/release/chaingraph-server
+
+# 指定参数启动
+./target/release/chaingraph-server \
+    --data-dir ./data \
+    --host 0.0.0.0 \
+    --port 8080 \
+    --buffer-size 1024
+</code></pre>
+
+<h3 id="使用-cli">使用 CLI</h3>
+
+<pre><code class="language-bash">
+# 交互式命令行
+./target/release/chaingraph-cli --data-dir ./data
+
+# 执行单个查询
+./target/release/chaingraph-cli -e "MATCH (n:Account) RETURN n LIMIT 10"
+</code></pre>
+
+<h3 id="导入数据">导入数据</h3>
+
+<pre><code class="language-bash">
+# 从 CSV 导入
+./target/release/chaingraph-import \
+    --input transactions.csv \
+    --format csv \
+    --data-dir ./data
+
+# 从 JSON 导入
+./target/release/chaingraph-import \
+    --input transactions.jsonl \
+    --format jsonl \
+    --parallel
+
+# 使用 GQL INSERT 语句导入
+./target/release/chaingraph-cli --data-dir ./data -e \
+    'INSERT (a:Account {address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0"})'
+
+# 运行示例数据导入脚本
+./examples/import_sample_data.sh ./data
+</code></pre>
+
+<h2 id="-gql-查询示例">📖 GQL 查询示例</h2>
+
+<h3 id="基本查询">基本查询</h3>
+
+<pre><code class="language-gql">
+-- 查找所有账户
+MATCH (n:Account) RETURN n LIMIT 100
+
+-- 查找指定地址的账户
+MATCH (n:Account {address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0"}) 
+RETURN n
+
+-- 查找转账关系
+MATCH (a:Account)-[t:Transfer]-&gt;(b:Account) 
+RETURN a, t, b LIMIT 50
+</code></pre>
+
+<h3 id="链路追踪">链路追踪</h3>
+
+<pre><code class="language-gql">
+-- 查找两个地址之间的转账路径
+MATCH path = (a:Account)-[:Transfer*1..5]-&gt;(b:Account)
+WHERE a.address = "0xAAA..." AND b.address = "0xBBB..."
+RETURN path
+
+-- 查找某地址的所有出向转账
+MATCH (a:Account)-[t:Transfer]-&gt;(b:Account)
+WHERE a.address = "0x742d35Cc..."
+RETURN b.address, t.amount
+</code></pre>
+
+<h3 id="数据写入-insert">数据写入 (INSERT)</h3>
+
+<pre><code class="language-gql">
+-- 插入账户顶点
+INSERT (alice:Account {address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0"})
+
+-- 插入合约顶点
+INSERT (uniswap:Contract {address: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"})
+
+-- 插入转账边
+INSERT (a:Account {address: "0xAAA..."})-[t:Transfer {amount: 1000, block: 18500000}]-&gt;(b:Account {address: "0xBBB..."})
+</code></pre>
+
+<h3 id="过程调用-call---iso-gql-39075">过程调用 (CALL) - ISO GQL 39075</h3>
+
+<p>ChainGraph 支持标准的 GQL CALL 语句来调用图算法和过程：</p>
+
+<pre><code class="language-gql">
+-- 最短路径
+CALL shortest_path(1, 5)
+
+-- 所有路径（指定最大深度）
+CALL all_paths(1, 5, 10)
+
+-- 链路追踪
+CALL trace(1, 'forward', 5)       -- 前向追踪
+CALL trace(1, 'backward', 5)      -- 后向追踪
+CALL trace(1, 'both', 5)          -- 双向追踪
+
+-- 最大流分析
+CALL max_flow(1, 100)
+
+-- 邻居查询
+CALL neighbors(1, 'out')          -- 出边邻居
+CALL neighbors(1, 'in')           -- 入边邻居
+CALL neighbors(1, 'both')         -- 所有邻居
+
+-- 度数查询
+CALL degree(1)
+
+-- 连通性检测
+CALL connected(1, 100)
+
+-- 可选调用（不存在时返回空而非报错）
+OPTIONAL CALL shortest_path(1, 999)
+</code></pre>
+
+<h4 id="可用的过程列表">可用的过程列表</h4>
+
+<table class="table">
+<thead>
+<tr>
+<th>过程名</th>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>shortest_path(source, target)</code></td>
+<td>source: 起点ID, target: 终点ID</td>
+<td>查找最短路径</td>
+</tr>
+<tr>
+<th><code>all<em>paths(source, target, max</em>depth?)</code></th>
+<th>source, target, 可选深度限制</th>
+<th>查找所有路径</th>
+</tr>
+<tr>
+<th><code>trace(start, direction?, max_depth?)</code></th>
+<th>start: 起点, direction: forward/backward/both</th>
+<th>链路追踪</th>
+</tr>
+<tr>
+<th><code>max_flow(source, sink)</code></th>
+<th>source: 源点, sink: 汇点</th>
+<th>计算最大流</th>
+</tr>
+<tr>
+<th><code>neighbors(vertex_id, direction?)</code></th>
+<th>vertex_id: 顶点ID, direction: in/out/both</th>
+<th>获取邻居</th>
+</tr>
+<tr>
+<th><code>degree(vertex_id)</code></th>
+<th>vertex_id: 顶点ID</th>
+<th>获取顶点度数</th>
+</tr>
+<tr>
+<th><code>connected(source, target)</code></th>
+<th>source, target: 顶点ID</th>
+<th>检查连通性</th>
+</tr>
+</tbody>
+</table>
+
+<h3 id="show-语句---查看数据库对象">SHOW 语句 - 查看数据库对象</h3>
+
+<p>查看数据库中的各类对象：</p>
+
+<pre><code class="language-gql">
+-- 查看所有图
+SHOW GRAPHS
+
+-- 查看所有图类型
+SHOW GRAPH TYPES
+
+-- 查看所有模式
+SHOW SCHEMAS
+
+-- 查看所有顶点标签
+SHOW LABELS
+
+-- 查看所有边类型
+SHOW EDGE TYPES
+SHOW RELATIONSHIP TYPES
+
+-- 查看所有属性键
+SHOW PROPERTY KEYS
+
+-- 查看所有函数
+SHOW FUNCTIONS
+
+-- 查看所有过程
+SHOW PROCEDURES
+
+-- 查看所有索引
+SHOW INDEXES
+
+-- 查看所有约束
+SHOW CONSTRAINTS
+</code></pre>
+
+<h3 id="describe-语句---查看对象详情">DESCRIBE 语句 - 查看对象详情</h3>
+
+<p>查看数据库对象的详细信息：</p>
+
+<pre><code class="language-gql">
+-- 查看图详情
+DESCRIBE GRAPH myGraph
+DESC GRAPH myGraph
+
+-- 查看图类型详情
+DESCRIBE GRAPH TYPE myGraphType
+DESC GRAPH TYPE myType
+
+-- 查看模式详情
+DESCRIBE SCHEMA public
+
+-- 查看顶点标签详情
+DESCRIBE LABEL Account
+
+-- 查看边类型详情
+DESCRIBE EDGE TYPE Transfer
+</code></pre>
+
+<h3 id="变量绑定-let---iso-gql-39075">变量绑定 (LET) - ISO GQL 39075</h3>
+
+<p>使用 LET 语句声明和绑定变量：</p>
+
+<pre><code class="language-gql">
+-- 单个变量绑定
+LET x = 10
+
+-- 多个变量绑定
+LET x = 10, name = "Alice", active = true
+
+-- 复杂表达式绑定
+LET total = 100, tax_rate = 0.08
+</code></pre>
+
+<h3 id="迭代语句-for---iso-gql-39075">迭代语句 (FOR) - ISO GQL 39075</h3>
+
+<p>使用 FOR 语句进行列表迭代，支持序数变量：</p>
+
+<pre><code class="language-gql">
+-- 基本迭代
+FOR x IN [1, 2, 3, 4, 5]
+
+-- 使用 range() 函数
+FOR i IN range(1, 10)
+
+-- 带序数变量的迭代
+FOR item IN list WITH ORDINALITY AS ord
+
+-- 完整示例
+FOR i IN range(1, 100) WITH ORDINALITY AS idx
+</code></pre>
+
+<h3 id="过滤语句-filter---iso-gql-39075">过滤语句 (FILTER) - ISO GQL 39075</h3>
+
+<p>使用 FILTER 语句进行条件过滤：</p>
+
+<pre><code class="language-gql">
+-- 基本过滤
+FILTER n.age &gt; 18
+
+-- 复合条件
+FILTER n.status = "active" AND n.balance &gt; 1000
+
+-- 使用 OR
+FILTER n.type = "Account" OR n.type = "Contract"
+
+-- NOT 条件
+FILTER NOT n.deleted
+</code></pre>
+
+<h3 id="选择语句-select---iso-gql-39075">选择语句 (SELECT) - ISO GQL 39075</h3>
+
+<p>支持 SQL 风格的 SELECT 查询，包含分组、排序、聚合等功能：</p>
+
+<pre><code class="language-gql">
+-- 基本选择
+SELECT n.name, n.age
+
+-- 使用 DISTINCT
+SELECT DISTINCT n.type
+
+-- 分组查询
+SELECT n.category, COUNT(*) 
+GROUP BY n.category
+
+-- 带 HAVING 的分组
+SELECT n.type, SUM(n.amount) AS total
+GROUP BY n.type
+HAVING SUM(n.amount) &gt; 10000
+
+-- 排序和分页
+SELECT n.name, n.created_at
+ORDER BY n.created_at DESC
+LIMIT 10 OFFSET 20
+</code></pre>
+
+<h3 id="图上下文切换-use---iso-gql-39075">图上下文切换 (USE) - ISO GQL 39075</h3>
+
+<p>使用 USE 语句切换当前图上下文：</p>
+
+<pre><code class="language-gql">
+-- 切换到指定图
+USE GRAPH ethereum_mainnet
+
+-- 切换到另一个图
+USE GRAPH polygon_network
+</code></pre>
+
+<h3 id="复合查询---iso-gql-39075">复合查询 - ISO GQL 39075</h3>
+
+<p>支持 UNION、EXCEPT、INTERSECT、OTHERWISE 操作：</p>
+
+<pre><code class="language-gql">
+-- 联合查询
+MATCH (a:Account) RETURN a
+UNION ALL
+MATCH (c:Contract) RETURN c
+
+-- 差集
+MATCH (a:Account) RETURN a
+EXCEPT
+MATCH (b:Account {status: "inactive"}) RETURN b
+
+-- 交集
+MATCH (a:Account {type: "whale"}) RETURN a
+INTERSECT
+MATCH (b:Account {active: true}) RETURN b
+
+-- OTHERWISE (回退查询)
+MATCH (n:Account {address: "0x..."}) RETURN n
+OTHERWISE
+MATCH (n:Account) RETURN n LIMIT 1
+</code></pre>
+
+<h3 id="会话管理-session---iso-gql-39075">会话管理 (SESSION) - ISO GQL 39075</h3>
+
+<p>管理查询会话的模式、图和属性：</p>
+
+<pre><code class="language-gql">
+-- 设置当前模式
+SESSION SET SCHEMA main_schema
+
+-- 设置当前图
+SESSION SET GRAPH ethereum
+
+-- 设置属性图
+SESSION SET PROPERTY GRAPH financial_graph
+
+-- 设置多个属性
+SESSION SET VALUE timeout = 30000
+
+-- 重置会话
+SESSION RESET SCHEMA
+SESSION RESET GRAPH
+SESSION RESET ALL
+
+-- 关闭会话
+SESSION CLOSE
+</code></pre>
+
+<h3 id="事务控制-transaction---iso-gql-39075">事务控制 (TRANSACTION) - ISO GQL 39075</h3>
+
+<p>支持显式事务管理：</p>
+
+<pre><code class="language-gql">
+-- 开始读写事务
+START TRANSACTION READ WRITE
+
+-- 开始只读事务
+START TRANSACTION READ ONLY
+
+-- 提交事务
+COMMIT
+
+-- 回滚事务
+ROLLBACK
+</code></pre>
+
+<h3 id="图类型定义-createdrop-graph-type---iso-gql-39075">图类型定义 (CREATE/DROP GRAPH TYPE) - ISO GQL 39075</h3>
+
+<p>定义和管理图类型模式：</p>
+
+<pre><code class="language-gql">
+-- 创建图类型
+CREATE GRAPH TYPE financial_network AS (
+  (account:Account {address STRING, balance DECIMAL}),
+  (contract:Contract {address STRING, code_hash STRING}),
+  (account)-[transfer:Transfer {amount DECIMAL}]-&gt;(account)
+)
+
+-- 删除图类型
+DROP GRAPH TYPE financial_network
+</code></pre>
+
+<h3 id="量化路径模式---iso-gql-39075">量化路径模式 - ISO GQL 39075</h3>
+
+<p>支持路径长度限制和搜索模式：</p>
+
+<pre><code class="language-gql">
+-- 可变长度路径
+MATCH (a)-[*1..5]-&gt;(b) RETURN path
+
+-- 精确长度路径
+MATCH (a)-[*3]-&gt;(b) RETURN path
+
+-- 最短路径前缀
+MATCH SHORTEST (a)-[*]-&gt;(b) RETURN path
+
+-- 所有最短路径
+MATCH ALL SHORTEST (a)-[*]-&gt;(b) RETURN path
+
+-- 任意路径
+MATCH ANY (a)-[*1..10]-&gt;(b) RETURN path
+
+-- 任意最短路径
+MATCH ANY SHORTEST (a)-[*]-&gt;(b) RETURN path
+</code></pre>
+
+<h2 id="-rest-api">🔌 REST API</h2>
+
+<h3 id="查询端点">查询端点</h3>
+
+<pre><code class="language-bash">
+# 执行 GQL 查询
+curl -X POST http://localhost:8080/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "MATCH (n:Account) RETURN n LIMIT 10"}'
+
+# 获取顶点
+curl http://localhost:8080/vertices/1
+
+# 通过地址获取顶点
+curl http://localhost:8080/vertices/address/0x742d35Cc...
+</code></pre>
+
+<h3 id="算法端点">算法端点</h3>
+
+<pre><code class="language-bash">
+# 最短路径
+curl -X POST http://localhost:8080/algorithm/shortest-path \
+  -H "Content-Type: application/json" \
+  -d '{"source": 1, "target": 100}'
+
+# 所有路径
+curl -X POST http://localhost:8080/algorithm/all-paths \
+  -H "Content-Type: application/json" \
+  -d '{"source": 1, "target": 100, "max_depth": 5}'
+
+# 最大流
+curl -X POST http://localhost:8080/algorithm/max-flow \
+  -H "Content-Type: application/json" \
+  -d '{"source": 1, "sink": 100}'
+
+# 链路追踪
+curl -X POST http://localhost:8080/algorithm/trace \
+  -H "Content-Type: application/json" \
+  -d '{"start": 1, "direction": "forward", "max_depth": 10}'
+</code></pre>
+
+<h2 id="-架构">🏗️ 架构</h2>
+
+<pre><code>
+┌─────────────────────────────────────────────────────────┐
+│                      REST API Layer                      │
+│                   (axum HTTP Server)                     │
+├─────────────────────────────────────────────────────────┤
+│                     Query Engine                         │
+│              ┌─────────┬──────────────┐                  │
+│              │ Parser  │   Executor   │                  │
+│              │  (GQL)  │              │                  │
+│              └─────────┴──────────────┘                  │
+├─────────────────────────────────────────────────────────┤
+│                   Graph Algorithms                       │
+│     ┌──────────────┐        ┌──────────────────┐        │
+│     │ Path Tracing │        │ Max Flow (E-K)   │        │
+│     └──────────────┘        └──────────────────┘        │
+├─────────────────────────────────────────────────────────┤
+│                      Graph Core                          │
+│   ┌──────────┐  ┌──────────┐  ┌───────────────────┐     │
+│   │  Vertex  │  │   Edge   │  │      Index        │     │
+│   └──────────┘  └──────────┘  └───────────────────┘     │
+├─────────────────────────────────────────────────────────┤
+│                    Storage Engine                        │
+│   ┌──────────────┐  ┌──────────────┐  ┌────────────┐    │
+│   │ Buffer Pool  │  │ Disk Storage │  │    Page    │    │
+│   │    (LRU)     │  │   (mmap)     │  │   (4KB)    │    │
+│   └──────────────┘  └──────────────┘  └────────────┘    │
+└─────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+                    ┌──────────────┐
+                    │     SSD      │
+                    └──────────────┘
+</code></pre>
+
+<h2 id="-数据模型">📊 数据模型</h2>
+
+<h3 id="顶点类型-vertexlabel">顶点类型 (VertexLabel)</h3>
+
+<table class="table">
+<thead>
+<tr>
+<th>类型</th>
+<th>描述</th>
+<th>典型属性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Account</code></td>
+<td>EOA 账户</td>
+<td>address, balance, nonce</td>
+</tr>
+<tr>
+<th><code>Contract</code></th>
+<th>智能合约</th>
+<th>address, code_hash, creator</th>
+</tr>
+<tr>
+<th><code>Token</code></th>
+<th>代币</th>
+<th>address, symbol, decimals</th>
+</tr>
+<tr>
+<th><code>Transaction</code></th>
+<th>交易</th>
+<th>hash, block<em>number, gas</em>used</th>
+</tr>
+<tr>
+<th><code>Block</code></th>
+<th>区块</th>
+<th>number, hash, timestamp</th>
+</tr>
+</tbody>
+</table>
+
+<h3 id="边类型-edgelabel">边类型 (EdgeLabel)</h3>
+
+<table class="table">
+<thead>
+<tr>
+<th>类型</th>
+<th>描述</th>
+<th>典型属性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Transfer</code></td>
+<td>代币转账</td>
+<td>amount, token, tx_hash</td>
+</tr>
+<tr>
+<th><code>Call</code></th>
+<th>合约调用</th>
+<th>method, gas, tx_hash</th>
+</tr>
+<tr>
+<th><code>Create</code></th>
+<th>合约创建</th>
+<th>tx<em>hash, block</em>number</th>
+</tr>
+<tr>
+<th><code>Approve</code></th>
+<th>授权</th>
+<th>amount, spender</th>
+</tr>
+</tbody>
+</table>
+
+<h2 id="-配置">⚙️ 配置</h2>
+
+<h3 id="服务器配置">服务器配置</h3>
+
+<table class="table">
+<thead>
+<tr>
+<th>参数</th>
+<th>默认值</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--data-dir</code></td>
+<td><code>./data</code></td>
+<td>数据存储目录</td>
+</tr>
+<tr>
+<th><code>--host</code></th>
+<th><code>127.0.0.1</code></th>
+<th>监听地址</th>
+</tr>
+<tr>
+<th><code>--port</code></th>
+<th><code>8080</code></th>
+<th>监听端口</th>
+</tr>
+<tr>
+<th><code>--buffer-size</code></th>
+<th><code>1024</code></th>
+<th>缓冲池大小（页面数）</th>
+</tr>
+</tbody>
+</table>
+
+<h3 id="性能调优">性能调优</h3>
+
+<pre><code class="language-bash">
+# 大规模数据场景
+./target/release/chaingraph-server \
+    --buffer-size 8192 \  # 32MB 缓冲池
+    --data-dir /ssd/chaingraph
+</code></pre>
+
+<h2 id="-测试">🧪 测试</h2>
+
+<pre><code class="language-bash">
+# 运行所有测试
+cargo test
+
+# 运行特定模块测试
+cargo test storage::
+cargo test algorithm::
+cargo test query::
+
+# 运行基准测试
+cargo bench
+</code></pre>
+
+<h2 id="-许可证">📄 许可证</h2>
+
+<p>本项目采用 MIT 许可证。详见 <a href="LICENSE">LICENSE</a> 文件。</p>
+
+<h2 id="-贡献">🤝 贡献</h2>
+
+<p>欢迎贡献代码！请先阅读 <a href="CONTRIBUTING.md">贡献指南</a>。</p>
+
+<hr>
+
+<p><p align="center"></p>
+<p>  Made with ❤️ for Web3</p>
+<p></p></p>
+
+        </main>
+    </div>
+    <script>
+        // 生成目录
+        document.addEventListener('DOMContentLoaded', function() {
+            const toc = document.getElementById('toc');
+            const headings = document.querySelectorAll('h1, h2, h3');
+            let tocHtml = '<ul>';
+            headings.forEach(function(heading) {
+                const level = parseInt(heading.tagName.charAt(1));
+                const text = heading.textContent;
+                const id = heading.id;
+                const indent = (level - 1) * 15;
+                tocHtml += `<li style="margin-left: ${indent}px"><a href="#${id}">${text}</a></li>`;
+            });
+            tocHtml += '</ul>';
+            toc.innerHTML = tocHtml;
+        });
+    </script>
+</body>
+</html>

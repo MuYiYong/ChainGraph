@@ -1,0 +1,41 @@
+# Rust 构建产物
+/target/
+**/*.rs.bk
+# 注意：应用程序项目应该提交 Cargo.lock，库项目才排除
+
+# IDE 和编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# 数据文件（可选保留示例数据）
+/data/
+/test_data/
+/test_data2/
+/demo_data/
+/sample_data/
+/test_import_data/
+
+# Release 构建产物
+/release/chaingraph-*/
+/release/*.tar.gz
+/release/*.zip
+/release/*.sha256
+
+# Docker 临时文件
+Dockerfile.linux
+
+# 日志文件
+*.log
+
+# 临时文件
+*.tmp
+*.bak

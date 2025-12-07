@@ -1,0 +1,130 @@
+-- ============================================================
+-- ChainGraph 示例数据 - 通过 GQL DML 语句导入
+-- ============================================================
+-- 这是一个模拟的 DeFi 交易场景，包含以下实体：
+-- - 5 个普通账户 (EOA)
+-- - 2 个合约 (Uniswap、AAVE)
+-- - 多笔转账和调用交易
+-- ============================================================
+
+-- ==================== 插入账户顶点 ====================
+
+-- Alice 的钱包
+INSERT (alice:Account {
+    address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0",
+    name: "Alice",
+    balance: 10000
+})
+
+-- Bob 的钱包
+INSERT (bob:Account {
+    address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72",
+    name: "Bob",
+    balance: 5000
+})
+
+-- Charlie 的钱包
+INSERT (charlie:Account {
+    address: "0xdD2FD4581271e230360230F9337D5c0430Bf44C0",
+    name: "Charlie",
+    balance: 8000
+})
+
+-- Dave 的钱包
+INSERT (dave:Account {
+    address: "0x2546BcD3c84621e976D8185a91A922aE77ECEc30",
+    name: "Dave",
+    balance: 3000
+})
+
+-- Eve 的钱包 (可疑账户)
+INSERT (eve:Account {
+    address: "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E",
+    name: "Eve",
+    balance: 50000
+})
+
+-- ==================== 插入合约顶点 ====================
+
+-- Uniswap 路由合约
+INSERT (uniswap:Contract {
+    address: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+    name: "Uniswap V2 Router",
+    protocol: "Uniswap"
+})
+
+-- AAVE 借贷池合约
+INSERT (aave:Contract {
+    address: "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9",
+    name: "AAVE Lending Pool",
+    protocol: "AAVE"
+})
+
+-- ==================== 插入转账边 ====================
+
+-- Alice 转给 Bob 1000 代币
+INSERT (a:Account {address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0"})
+       -[t1:Transfer {amount: 1000, block: 18500000}]->
+       (b:Account {address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72"})
+
+-- Bob 转给 Charlie 500 代币
+INSERT (b:Account {address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72"})
+       -[t2:Transfer {amount: 500, block: 18500001}]->
+       (c:Account {address: "0xdD2FD4581271e230360230F9337D5c0430Bf44C0"})
+
+-- Charlie 转给 Dave 300 代币
+INSERT (c:Account {address: "0xdD2FD4581271e230360230F9337D5c0430Bf44C0"})
+       -[t3:Transfer {amount: 300, block: 18500002}]->
+       (d:Account {address: "0x2546BcD3c84621e976D8185a91A922aE77ECEc30"})
+
+-- Dave 转给 Eve 200 代币 (可疑链路)
+INSERT (d:Account {address: "0x2546BcD3c84621e976D8185a91A922aE77ECEc30"})
+       -[t4:Transfer {amount: 200, block: 18500003}]->
+       (e:Account {address: "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E"})
+
+-- Eve 转给 Alice 100 代币 (形成环路)
+INSERT (e:Account {address: "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E"})
+       -[t5:Transfer {amount: 100, block: 18500004}]->
+       (a:Account {address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0"})
+
+-- ==================== DeFi 交互 ====================
+
+-- Alice 与 Uniswap 交互 (Swap)
+INSERT (a:Account {address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0"})
+       -[s1:Transfer {amount: 2000, block: 18500010}]->
+       (uni:Contract {address: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"})
+
+-- Uniswap 返还代币给 Alice
+INSERT (uni:Contract {address: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"})
+       -[s2:Transfer {amount: 1950, block: 18500010}]->
+       (a:Account {address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0"})
+
+-- Bob 存入 AAVE
+INSERT (b:Account {address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72"})
+       -[d1:Transfer {amount: 3000, block: 18500020}]->
+       (aave:Contract {address: "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9"})
+
+-- Charlie 从 AAVE 借款
+INSERT (aave:Contract {address: "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9"})
+       -[l1:Transfer {amount: 5000, block: 18500021}]->
+       (c:Account {address: "0xdD2FD4581271e230360230F9337D5c0430Bf44C0"})
+
+-- ==================== 可疑交易链路 ====================
+
+-- 大额转账 Eve -> 新地址
+INSERT (e:Account {address: "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E"})
+       -[sus1:Transfer {amount: 25000, block: 18600000}]->
+       (mixer:Account {address: "0x1234567890123456789012345678901234567890"})
+
+-- 混币器分散转出
+INSERT (mixer:Account {address: "0x1234567890123456789012345678901234567890"})
+       -[sus2:Transfer {amount: 8000, block: 18600001}]->
+       (out1:Account {address: "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"})
+
+INSERT (mixer:Account {address: "0x1234567890123456789012345678901234567890"})
+       -[sus3:Transfer {amount: 8000, block: 18600002}]->
+       (out2:Account {address: "0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"})
+
+INSERT (mixer:Account {address: "0x1234567890123456789012345678901234567890"})
+       -[sus4:Transfer {amount: 9000, block: 18600003}]->
+       (out3:Account {address: "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"})

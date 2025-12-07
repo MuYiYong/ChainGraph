@@ -1,0 +1,2743 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChainGraph - 产品手册</title>
+    <style>
+
+:root {
+    --bg-color: #1a1a2e;
+    --sidebar-bg: #16213e;
+    --content-bg: #0f0f23;
+    --text-color: #e4e4e4;
+    --heading-color: #00d9ff;
+    --link-color: #64b5f6;
+    --code-bg: #2d2d4a;
+    --border-color: #3d3d5c;
+    --table-header-bg: #2a2a4a;
+    --success-color: #4caf50;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+.container {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 280px;
+    background-color: var(--sidebar-bg);
+    border-right: 1px solid var(--border-color);
+    position: fixed;
+    height: 100vh;
+    overflow-y: auto;
+}
+
+.sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: linear-gradient(135deg, #1e3a5f 0%, #16213e 100%);
+}
+
+.sidebar-header h2 {
+    color: var(--heading-color);
+    font-size: 1.2rem;
+}
+
+.sidebar-content {
+    padding: 15px;
+}
+
+.sidebar-content ul {
+    list-style: none;
+}
+
+.sidebar-content li {
+    margin: 5px 0;
+}
+
+.sidebar-content a {
+    color: var(--text-color);
+    text-decoration: none;
+    font-size: 0.9rem;
+    display: block;
+    padding: 5px 10px;
+    border-radius: 5px;
+    transition: all 0.2s;
+}
+
+.sidebar-content a:hover {
+    background-color: var(--code-bg);
+    color: var(--heading-color);
+}
+
+.content {
+    margin-left: 280px;
+    padding: 40px 60px;
+    max-width: 1000px;
+    background-color: var(--content-bg);
+    min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--heading-color);
+    margin: 1.5em 0 0.5em;
+    font-weight: 600;
+}
+
+h1 {
+    font-size: 2.5rem;
+    border-bottom: 2px solid var(--heading-color);
+    padding-bottom: 10px;
+}
+
+h2 {
+    font-size: 1.8rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+h3 {
+    font-size: 1.4rem;
+}
+
+h4 {
+    font-size: 1.2rem;
+}
+
+p {
+    margin: 1em 0;
+}
+
+a {
+    color: var(--link-color);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+code {
+    background-color: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.9em;
+}
+
+pre {
+    background-color: var(--code-bg);
+    padding: 15px 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 1em 0;
+    border: 1px solid var(--border-color);
+}
+
+pre code {
+    background: none;
+    padding: 0;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+}
+
+.table th, .table td {
+    border: 1px solid var(--border-color);
+    padding: 10px 15px;
+    text-align: left;
+}
+
+.table th {
+    background-color: var(--table-header-bg);
+    color: var(--heading-color);
+    font-weight: 600;
+}
+
+.table tr:nth-child(even) {
+    background-color: rgba(45, 45, 74, 0.3);
+}
+
+ul, ol {
+    margin: 1em 0;
+    padding-left: 2em;
+}
+
+li {
+    margin: 0.5em 0;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 2em 0;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+blockquote {
+    border-left: 4px solid var(--heading-color);
+    padding-left: 20px;
+    margin: 1em 0;
+    color: #aaa;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .sidebar {
+        display: none;
+    }
+    .content {
+        margin-left: 0;
+        padding: 20px;
+    }
+}
+
+/* 代码高亮基础样式 */
+.language-gql, .language-sql, .language-bash, .language-rust, .language-json {
+    color: #a8d4ff;
+}
+
+/* 打印样式 */
+@media print {
+    .sidebar {
+        display: none;
+    }
+    .content {
+        margin-left: 0;
+        background: white;
+        color: black;
+    }
+    h1, h2, h3, h4 {
+        color: #333;
+    }
+    pre, code {
+        background-color: #f5f5f5;
+        border: 1px solid #ddd;
+    }
+}
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h2>📖 导航</h2>
+            </div>
+            <div class="sidebar-content" id="toc">
+            </div>
+        </nav>
+        <main class="content">
+<h1 id="chaingraph-产品手册">ChainGraph 产品手册</h1>
+
+<h2 id="目录">目录</h2>
+
+<ol>
+<li><a href="#1-产品概述">产品概述</a></li>
+<li><a href="#2-系统要求">系统要求</a></li>
+<li><a href="#3-安装部署">安装部署</a></li>
+<li><a href="#4-核心概念">核心概念</a></li>
+<li><a href="#5-数据模型">数据模型</a></li>
+<li><a href="#6-gql-查询语言">GQL 查询语言</a></li>
+</ol>
+<ul>
+<li><a href="#61-语法概述">6.1 语法概述</a></li>
+<li><a href="#62-match-语句">6.2 MATCH 语句</a></li>
+<li><a href="#63-where-子句">6.3 WHERE 子句</a></li>
+<li><a href="#64-return-子句">6.4 RETURN 子句</a></li>
+<li><a href="#65-order-by-和-limit">6.5 ORDER BY 和 LIMIT</a></li>
+<li><a href="#66-insert-语句">6.6 INSERT 语句</a></li>
+<li><a href="#67-delete-语句">6.7 DELETE 语句</a></li>
+<li><a href="#68-update-语句">6.8 UPDATE 语句</a></li>
+<li><a href="#69-let-变量绑定-iso-gql-39075">6.9 LET 变量绑定</a></li>
+<li><a href="#610-for-迭代语句-iso-gql-39075">6.10 FOR 迭代语句</a></li>
+<li><a href="#611-filter-过滤语句-iso-gql-39075">6.11 FILTER 过滤语句</a></li>
+<li><a href="#612-select-查询语句-iso-gql-39075">6.12 SELECT 查询语句</a></li>
+<li><a href="#613-use-图切换语句-iso-gql-39075">6.13 USE 图切换语句</a></li>
+<li><a href="#614-复合查询-iso-gql-39075">6.14 复合查询</a></li>
+<li><a href="#615-session-会话管理-iso-gql-39075">6.15 SESSION 会话管理</a></li>
+<li><a href="#616-transaction-事务控制-iso-gql-39075">6.16 TRANSACTION 事务控制</a></li>
+<li><a href="#617-createdrop-graph-type-iso-gql-39075">6.17 CREATE/DROP GRAPH TYPE</a></li>
+<li><a href="#618-量化路径模式-iso-gql-39075">6.18 量化路径模式</a></li>
+<li><a href="#619-show-语句---查看数据库对象">6.19 SHOW 语句</a></li>
+<li><a href="#620-describe-语句---查看对象详情">6.20 DESCRIBE 语句</a></li>
+</ul>
+<ol>
+<li><a href="#7-图算法">图算法</a></li>
+<li><a href="#8-rest-api-参考">REST API 参考</a></li>
+<li><a href="#9-数据导入">数据导入</a></li>
+<li><a href="#10-命令行工具">命令行工具</a></li>
+<li><a href="#11-性能调优">性能调优</a></li>
+<li><a href="#12-最佳实践">最佳实践</a></li>
+<li><a href="#13-故障排除">故障排除</a></li>
+<li><a href="#附录">附录</a></li>
+</ol>
+
+<hr>
+
+<h2 id="1-产品概述">1. 产品概述</h2>
+
+<h3 id="11-什么是-chaingraph">1.1 什么是 ChainGraph</h3>
+
+<p>ChainGraph 是一款专为 Web3 场景设计的高性能图数据库。它专注于区块链数据的存储、查询和分析，特别适用于：</p>
+
+<ul>
+<li><strong>链路追踪</strong>：追踪资金流向，发现地址之间的关联关系</li>
+<li><strong>反洗钱分析</strong>：检测可疑交易模式，识别混币行为</li>
+<li><strong>智能合约分析</strong>：分析合约调用关系和依赖图</li>
+<li><strong>DeFi 监控</strong>：监控 DeFi 协议的资金流动</li>
+</ul>
+
+<h3 id="12-核心优势">1.2 核心优势</h3>
+
+<table class="table">
+<thead>
+<tr>
+<th>特性</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>SSD 优化</strong></td>
+<td>4KB 页面对齐，最大化 SSD 性能</td>
+</tr>
+<tr>
+<th><strong>海量数据</strong></th>
+<th>支持存储数十亿顶点和边</th>
+</tr>
+<tr>
+<th><strong>实时分析</strong></th>
+<th>毫秒级路径查询和图分析</th>
+</tr>
+<tr>
+<th><strong>Web3 原生</strong></th>
+<th>内置区块链专用数据类型</th>
+</tr>
+<tr>
+<th><strong>标准查询</strong></th>
+<th>基于 ISO GQL 39075 标准</th>
+</tr>
+</tbody>
+</table>
+
+<h3 id="13-典型应用场景">1.3 典型应用场景</h3>
+
+<pre><code>
+┌─────────────────────────────────────────────────────────────┐
+│                    ChainGraph 应用场景                       │
+├─────────────────┬─────────────────┬─────────────────────────┤
+│   安全合规      │    业务分析     │      风险控制           │
+├─────────────────┼─────────────────┼─────────────────────────┤
+│ • 反洗钱检测    │ • 用户画像      │ • 欺诈检测              │
+│ • 制裁筛查      │ • 交易分析      │ • 异常行为识别          │
+│ • 合规报告      │ • 市场监控      │ • 风险评估              │
+└─────────────────┴─────────────────┴─────────────────────────┘
+</code></pre>
+
+<hr>
+
+<h2 id="2-系统要求">2. 系统要求</h2>
+
+<h3 id="21-硬件要求">2.1 硬件要求</h3>
+
+<table class="table">
+<thead>
+<tr>
+<th>组件</th>
+<th>最低配置</th>
+<th>推荐配置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CPU</td>
+<td>4 核</td>
+<td>8 核以上</td>
+</tr>
+<tr>
+<th>内存</th>
+<th>8 GB</th>
+<th>32 GB 以上</th>
+</tr>
+<tr>
+<th>存储</th>
+<th>100 GB SSD</th>
+<th>1 TB NVMe SSD</th>
+</tr>
+<tr>
+<th>网络</th>
+<th>100 Mbps</th>
+<th>1 Gbps</th>
+</tr>
+</tbody>
+</table>
+
+<h3 id="22-软件要求">2.2 软件要求</h3>
+
+<table class="table">
+<thead>
+<tr>
+<th>软件</th>
+<th>版本要求</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>操作系统</td>
+<td>Linux (推荐) / macOS / Windows</td>
+</tr>
+<tr>
+<th>Rust</th>
+<th>1.70+</th>
+</tr>
+<tr>
+<th>文件系统</th>
+<th>ext4 / xfs / APFS</th>
+</tr>
+</tbody>
+</table>
+
+<h3 id="23-端口要求">2.3 端口要求</h3>
+
+<table class="table">
+<thead>
+<tr>
+<th>端口</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>8080</td>
+<td>HTTP API 服务</td>
+</tr>
+</tbody>
+</table>
+
+<hr>
+
+<h2 id="3-安装部署">3. 安装部署</h2>
+
+<h3 id="31-从源码编译">3.1 从源码编译</h3>
+
+<pre><code class="language-bash">
+# 1. 克隆仓库
+git clone https://github.com/your-org/chaingraph.git
+cd chaingraph
+
+# 2. 编译 Release 版本
+cargo build --release
+
+# 3. 可执行文件位于
+ls target/release/chaingraph-*
+# chaingraph-server  - HTTP 服务器
+# chaingraph-cli     - 命令行工具
+# chaingraph-import  - 数据导入工具
+</code></pre>
+
+<h3 id="32-目录结构">3.2 目录结构</h3>
+
+<pre><code>
+chaingraph/
+├── target/release/
+│   ├── chaingraph-server    # 服务器
+│   ├── chaingraph-cli       # CLI 工具
+│   └── chaingraph-import    # 导入工具
+└── data/                    # 数据目录（自动创建）
+    ├── chaingraph.data      # 数据文件
+    └── chaingraph.meta      # 元数据文件
+</code></pre>
+
+<h3 id="33-启动服务">3.3 启动服务</h3>
+
+<pre><code class="language-bash">
+# 基本启动
+./chaingraph-server
+
+# 完整参数
+./chaingraph-server \
+    --data-dir /data/chaingraph \
+    --host 0.0.0.0 \
+    --port 8080 \
+    --buffer-size 2048
+</code></pre>
+
+<h3 id="34-服务验证">3.4 服务验证</h3>
+
+<pre><code class="language-bash">
+# 健康检查
+curl http://localhost:8080/health
+
+# 预期响应
+{"status": "ok", "version": "0.1.0"}
+</code></pre>
+
+<hr>
+
+<h2 id="4-核心概念">4. 核心概念</h2>
+
+<h3 id="41-图模型">4.1 图模型</h3>
+
+<p>ChainGraph 使用属性图模型（Property Graph Model）：</p>
+
+<pre><code>
+     ┌─────────────────┐          ┌─────────────────┐
+     │     Vertex      │          │      Edge       │
+     ├─────────────────┤          ├─────────────────┤
+     │ • ID            │          │ • ID            │
+     │ • Label         │─────────▶│ • Label         │
+     │ • Properties    │          │ • Source        │
+     └─────────────────┘          │ • Target        │
+                                  │ • Properties    │
+                                  └─────────────────┘
+</code></pre>
+
+<h3 id="42-顶点vertex">4.2 顶点（Vertex）</h3>
+
+<p>顶点代表区块链中的实体：</p>
+
+<pre><code class="language-rust">
+Vertex {
+    id: VertexId,           // 唯一标识
+    label: VertexLabel,     // 类型标签
+    address: Address,       // 区块链地址
+    properties: Properties, // 属性集合
+}
+</code></pre>
+
+<h3 id="43-边edge">4.3 边（Edge）</h3>
+
+<p>边代表实体之间的关系：</p>
+
+<pre><code class="language-rust">
+Edge {
+    id: EdgeId,             // 唯一标识
+    label: EdgeLabel,       // 类型标签
+    source: VertexId,       // 起点
+    target: VertexId,       // 终点
+    properties: Properties, // 属性集合
+}
+</code></pre>
+
+<h3 id="44-属性类型">4.4 属性类型</h3>
+
+<table class="table">
+<thead>
+<tr>
+<th>类型</th>
+<th>Rust 类型</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Null</code></td>
+<td><code>()</code></td>
+<td>空值</td>
+</tr>
+<tr>
+<th><code>Bool</code></th>
+<th><code>bool</code></th>
+<th>布尔值</th>
+</tr>
+<tr>
+<th><code>Int</code></th>
+<th><code>i64</code></th>
+<th>64位整数</th>
+</tr>
+<tr>
+<th><code>UInt</code></th>
+<th><code>u64</code></th>
+<th>64位无符号整数</th>
+</tr>
+<tr>
+<th><code>Float</code></th>
+<th><code>f64</code></th>
+<th>64位浮点数</th>
+</tr>
+<tr>
+<th><code>String</code></th>
+<th><code>String</code></th>
+<th>字符串</th>
+</tr>
+<tr>
+<th><code>Address</code></th>
+<th><code>H160</code></th>
+<th>以太坊地址</th>
+</tr>
+<tr>
+<th><code>TxHash</code></th>
+<th><code>H256</code></th>
+<th>交易哈希</th>
+</tr>
+<tr>
+<th><code>Amount</code></th>
+<th><code>U256</code></th>
+<th>代币金额</th>
+</tr>
+<tr>
+<th><code>Timestamp</code></th>
+<th><code>i64</code></th>
+<th>Unix 时间戳</th>
+</tr>
+<tr>
+<th><code>Bytes</code></th>
+<th><code>Vec<u8></code></th>
+<th>字节数组</th>
+</tr>
+<tr>
+<th><code>List</code></th>
+<th><code>Vec<PropertyValue></code></th>
+<th>列表</th>
+</tr>
+<tr>
+<th><code>Map</code></th>
+<th><code>HashMap<String, PropertyValue></code></th>
+<th>映射</th>
+</tr>
+</tbody>
+</table>
+
+<hr>
+
+<h2 id="5-数据模型">5. 数据模型</h2>
+
+<h3 id="51-顶点类型">5.1 顶点类型</h3>
+
+<h4 id="account账户">Account（账户）</h4>
+
+<p>表示外部拥有账户（EOA）。</p>
+
+<pre><code class="language-json">
+{
+  "label": "Account",
+  "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0",
+  "properties": {
+    "balance": "1000000000000000000",
+    "nonce": 42,
+    "first_seen_block": 12000000,
+    "last_active_block": 15000000,
+    "tx_count": 156
+  }
+}
+</code></pre>
+
+<h4 id="contract合约">Contract（合约）</h4>
+
+<p>表示智能合约。</p>
+
+<pre><code class="language-json">
+{
+  "label": "Contract",
+  "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "properties": {
+    "name": "TetherToken",
+    "symbol": "USDT",
+    "decimals": 6,
+    "creator": "0x...",
+    "creation_block": 4634748,
+    "is_verified": true
+  }
+}
+</code></pre>
+
+<h4 id="token代币">Token（代币）</h4>
+
+<p>表示 ERC20/ERC721 等代币。</p>
+
+<pre><code class="language-json">
+{
+  "label": "Token",
+  "address": "0xA0b86a33E6dC663CDA4e0A....",
+  "properties": {
+    "name": "USD Coin",
+    "symbol": "USDC",
+    "decimals": 6,
+    "total_supply": "1000000000000000"
+  }
+}
+</code></pre>
+
+<h4 id="transaction交易">Transaction（交易）</h4>
+
+<p>表示链上交易。</p>
+
+<pre><code class="language-json">
+{
+  "label": "Transaction",
+  "properties": {
+    "hash": "0x...",
+    "block_number": 15000000,
+    "from": "0x...",
+    "to": "0x...",
+    "value": "1000000000000000000",
+    "gas_used": 21000,
+    "gas_price": "50000000000",
+    "status": 1
+  }
+}
+</code></pre>
+
+<h4 id="block区块">Block（区块）</h4>
+
+<p>表示区块。</p>
+
+<pre><code class="language-json">
+{
+  "label": "Block",
+  "properties": {
+    "number": 15000000,
+    "hash": "0x...",
+    "parent_hash": "0x...",
+    "timestamp": 1660000000,
+    "miner": "0x...",
+    "gas_limit": 30000000,
+    "gas_used": 15000000,
+    "tx_count": 200
+  }
+}
+</code></pre>
+
+<h3 id="52-边类型">5.2 边类型</h3>
+
+<h4 id="transfer转账">Transfer（转账）</h4>
+
+<p>表示代币转账。</p>
+
+<pre><code class="language-json">
+{
+  "label": "Transfer",
+  "source": 1,
+  "target": 2,
+  "properties": {
+    "amount": "1000000000000000000",
+    "token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    "tx_hash": "0x...",
+    "block_number": 15000000,
+    "log_index": 0
+  }
+}
+</code></pre>
+
+<h4 id="call调用">Call（调用）</h4>
+
+<p>表示合约调用。</p>
+
+<pre><code class="language-json">
+{
+  "label": "Call",
+  "source": 1,
+  "target": 2,
+  "properties": {
+    "method": "transfer(address,uint256)",
+    "tx_hash": "0x...",
+    "gas_used": 50000,
+    "success": true
+  }
+}
+</code></pre>
+
+<h4 id="create创建">Create（创建）</h4>
+
+<p>表示合约创建。</p>
+
+<pre><code class="language-json">
+{
+  "label": "Create",
+  "source": 1,
+  "target": 2,
+  "properties": {
+    "tx_hash": "0x...",
+    "block_number": 15000000
+  }
+}
+</code></pre>
+
+<h4 id="approve授权">Approve（授权）</h4>
+
+<p>表示 ERC20 授权。</p>
+
+<pre><code class="language-json">
+{
+  "label": "Approve",
+  "source": 1,
+  "target": 2,
+  "properties": {
+    "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+    "token": "0x...",
+    "tx_hash": "0x..."
+  }
+}
+</code></pre>
+
+<hr>
+
+<h2 id="6-gql-查询语言">6. GQL 查询语言</h2>
+
+<h3 id="61-语法概述">6.1 语法概述</h3>
+
+<p>ChainGraph 支持基于 ISO GQL 39075 标准的查询语言。</p>
+
+<pre><code>
+GQL 语句 ::= MATCH 模式 [WHERE 条件] RETURN 返回项 [ORDER BY 排序] [LIMIT 限制]
+           | INSERT 模式
+           | DELETE 模式
+           | UPDATE 模式 SET 属性
+</code></pre>
+
+<h3 id="62-match-语句">6.2 MATCH 语句</h3>
+
+<h4 id="基本节点匹配">基本节点匹配</h4>
+
+<pre><code class="language-gql">
+-- 匹配所有账户
+MATCH (n:Account) RETURN n
+
+-- 匹配指定地址的账户
+MATCH (n:Account {address: "0x742d35Cc..."}) RETURN n
+
+-- 匹配多种类型
+MATCH (n:Account|Contract) RETURN n
+</code></pre>
+
+<h4 id="关系匹配">关系匹配</h4>
+
+<pre><code class="language-gql">
+-- 匹配转账关系
+MATCH (a:Account)-[t:Transfer]-&gt;(b:Account) RETURN a, t, b
+
+-- 匹配入向关系
+MATCH (a:Account)&lt;-[t:Transfer]-(b:Account) RETURN a, t, b
+
+-- 匹配任意方向
+MATCH (a:Account)-[t:Transfer]-(b:Account) RETURN a, t, b
+</code></pre>
+
+<h4 id="路径匹配">路径匹配</h4>
+
+<pre><code class="language-gql">
+-- 可变长度路径（1到5跳）
+MATCH (a)-[:Transfer*1..5]-&gt;(b) RETURN a, b
+
+-- 指定长度路径
+MATCH (a)-[:Transfer*3]-&gt;(b) RETURN a, b
+</code></pre>
+
+<h3 id="63-where-子句">6.3 WHERE 子句</h3>
+
+<pre><code class="language-gql">
+-- 数值比较
+MATCH (n:Account) WHERE n.balance &gt; 1000000000000000000 RETURN n
+
+-- 字符串匹配
+MATCH (n:Contract) WHERE n.name = "TetherToken" RETURN n
+
+-- 逻辑运算
+MATCH (n:Account) 
+WHERE n.balance &gt; 1000 AND n.tx_count &gt; 10 
+RETURN n
+
+-- 地址过滤
+MATCH (a)-[t:Transfer]-&gt;(b) 
+WHERE a.address = "0x..." 
+RETURN b, t.amount
+</code></pre>
+
+<h3 id="64-return-子句">6.4 RETURN 子句</h3>
+
+<pre><code class="language-gql">
+-- 返回节点
+MATCH (n:Account) RETURN n
+
+-- 返回属性
+MATCH (n:Account) RETURN n.address, n.balance
+
+-- 返回别名
+MATCH (n:Account) RETURN n.address AS addr, n.balance AS bal
+
+-- 返回路径
+MATCH path = (a)-[:Transfer*]-&gt;(b) RETURN path
+</code></pre>
+
+<h3 id="65-order-by-和-limit">6.5 ORDER BY 和 LIMIT</h3>
+
+<pre><code class="language-gql">
+-- 排序
+MATCH (n:Account) 
+RETURN n 
+ORDER BY n.balance DESC
+
+-- 限制结果
+MATCH (n:Account) 
+RETURN n 
+LIMIT 100
+
+-- 分页
+MATCH (n:Account) 
+RETURN n 
+ORDER BY n.balance DESC 
+SKIP 100 LIMIT 50
+</code></pre>
+
+<h3 id="66-insert-语句">6.6 INSERT 语句</h3>
+
+<p>INSERT 语句用于插入顶点和边，支持多种语法格式。</p>
+
+<h4 id="插入顶点">插入顶点</h4>
+
+<pre><code class="language-gql">
+-- 插入带标签的顶点
+INSERT (n:Account)
+
+-- 插入带属性的顶点
+INSERT (n:Account {address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0"})
+
+-- 插入带多个属性的顶点
+INSERT (alice:Account {
+    address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0",
+    name: "Alice",
+    balance: 10000
+})
+
+-- 插入合约顶点
+INSERT (uniswap:Contract {
+    address: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+    name: "Uniswap V2 Router"
+})
+</code></pre>
+
+<h4 id="插入边转账关系">插入边（转账关系）</h4>
+
+<pre><code class="language-gql">
+-- 插入带属性的边
+INSERT (a:Account {address: "0xAAA..."})-[t:Transfer {amount: 1000}]-&gt;(b:Account {address: "0xBBB..."})
+
+-- 插入带完整属性的转账边
+INSERT (a:Account {address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0"})
+       -[t:Transfer {amount: 1000, block: 18500000}]-&gt;
+       (b:Account {address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72"})
+</code></pre>
+
+<h4 id="边属性说明">边属性说明</h4>
+
+<table class="table">
+<thead>
+<tr>
+<th>属性</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>amount</code> 或 <code>value</code></td>
+<td>整数</td>
+<td>转账金额</td>
+</tr>
+<tr>
+<th><code>block</code> 或 <code>block_number</code></th>
+<th>整数</th>
+<th>区块高度</th>
+</tr>
+</tbody>
+</table>
+
+<p><strong>注意</strong>：插入边时，如果顶点已存在（通过 address 匹配），会自动复用现有顶点。</p>
+
+<h3 id="67-delete-语句">6.7 DELETE 语句</h3>
+
+<pre><code class="language-gql">
+-- 删除顶点
+MATCH (n:Account {address: "0x..."}) DELETE n
+
+-- 删除边
+MATCH (a)-[t:Transfer]-&gt;(b) WHERE t.amount &lt; 100 DELETE t
+</code></pre>
+
+<h3 id="68-update-语句">6.8 UPDATE 语句</h3>
+
+<pre><code class="language-gql">
+-- 更新属性
+MATCH (n:Account {address: "0x..."}) 
+SET n.balance = 2000000000000000000
+</code></pre>
+
+<h3 id="69-let-变量绑定-iso-gql-39075">6.9 LET 变量绑定 (ISO GQL 39075)</h3>
+
+<p>LET 语句用于声明和绑定变量，支持单个或多个变量同时绑定。</p>
+
+<pre><code class="language-gql">
+-- 单个变量绑定
+LET x = 10
+
+-- 多个变量绑定
+LET x = 10, name = "Alice", active = true
+
+-- 使用表达式
+LET total = 100, rate = 0.08, result = 1 + 2
+
+-- 布尔变量
+LET is_active = true, is_verified = false
+</code></pre>
+
+<h4 id="支持的数据类型">支持的数据类型</h4>
+
+<table class="table">
+<thead>
+<tr>
+<th>类型</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>整数</td>
+<td><code>LET x = 42</code></td>
+</tr>
+<tr>
+<th>浮点数</th>
+<th><code>LET pi = 3.14</code></th>
+</tr>
+<tr>
+<th>字符串</th>
+<th><code>LET name = "Alice"</code></th>
+</tr>
+<tr>
+<th>布尔值</th>
+<th><code>LET active = true</code></th>
+</tr>
+</tbody>
+</table>
+
+<h3 id="610-for-迭代语句-iso-gql-39075">6.10 FOR 迭代语句 (ISO GQL 39075)</h3>
+
+<p>FOR 语句用于在列表或范围上进行迭代，支持序数变量。</p>
+
+<pre><code class="language-gql">
+-- 基本迭代
+FOR x IN [1, 2, 3, 4, 5]
+
+-- 使用 range() 函数
+FOR i IN range(1, 10)
+
+-- 带序数变量的迭代
+FOR item IN [10, 20, 30] WITH ORDINALITY AS ord
+
+-- 综合示例
+FOR i IN range(0, 100) WITH ORDINALITY AS idx
+</code></pre>
+
+<h4 id="range-函数">range() 函数</h4>
+
+<p><code>range(start, end)</code> 函数生成从 <code>start</code> 到 <code>end-1</code> 的整数列表。</p>
+
+<pre><code class="language-gql">
+-- range(1, 5) 生成 [1, 2, 3, 4]
+FOR i IN range(1, 5)
+
+-- range(0, 3) 生成 [0, 1, 2]
+FOR i IN range(0, 3)
+</code></pre>
+
+<h3 id="611-filter-过滤语句-iso-gql-39075">6.11 FILTER 过滤语句 (ISO GQL 39075)</h3>
+
+<p>FILTER 语句用于基于条件过滤结果。</p>
+
+<pre><code class="language-gql">
+-- 基本过滤
+FILTER n.age &gt; 18
+
+-- 相等比较
+FILTER n.status = "active"
+
+-- 复合条件 (AND)
+FILTER n.balance &gt; 1000 AND n.tx_count &gt; 10
+
+-- 复合条件 (OR)
+FILTER n.type = "Account" OR n.type = "Contract"
+
+-- NOT 条件
+FILTER NOT n.deleted
+
+-- 复杂表达式
+FILTER n.amount &gt; 1000 AND (n.status = "pending" OR n.priority = "high")
+</code></pre>
+
+<h4 id="支持的比较运算符">支持的比较运算符</h4>
+
+<table class="table">
+<thead>
+<tr>
+<th>运算符</th>
+<th>描述</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>=</code></td>
+<td>相等</td>
+<td><code>FILTER n.status = "active"</code></td>
+</tr>
+<tr>
+<th><code><></code> 或 <code>!=</code></th>
+<th>不等</th>
+<th><code>FILTER n.type <> "test"</code></th>
+</tr>
+<tr>
+<th><code>></code></th>
+<th>大于</th>
+<th><code>FILTER n.balance > 1000</code></th>
+</tr>
+<tr>
+<th><code><</code></th>
+<th>小于</th>
+<th><code>FILTER n.age < 30</code></th>
+</tr>
+<tr>
+<th><code>>=</code></th>
+<th>大于等于</th>
+<th><code>FILTER n.score >= 60</code></th>
+</tr>
+<tr>
+<th><code><=</code></th>
+<th>小于等于</th>
+<th><code>FILTER n.count <= 100</code></th>
+</tr>
+</tbody>
+</table>
+
+<h3 id="612-select-查询语句-iso-gql-39075">6.12 SELECT 查询语句 (ISO GQL 39075)</h3>
+
+<p>SELECT 语句提供 SQL 风格的查询功能，支持 DISTINCT、GROUP BY、HAVING、ORDER BY、LIMIT 和 OFFSET。</p>
+
+<h4 id="基本-select">基本 SELECT</h4>
+
+<pre><code class="language-gql">
+-- 选择属性
+SELECT n.name, n.age
+
+-- 使用别名
+SELECT n.name AS name, n.balance AS amount
+
+-- 所有属性
+SELECT *
+</code></pre>
+
+<h4 id="distinct-去重">DISTINCT 去重</h4>
+
+<pre><code class="language-gql">
+-- 去除重复值
+SELECT DISTINCT n.type
+
+-- 多列去重
+SELECT DISTINCT n.category, n.status
+</code></pre>
+
+<h4 id="group-by-分组">GROUP BY 分组</h4>
+
+<pre><code class="language-gql">
+-- 基本分组
+SELECT n.type, COUNT(*) 
+GROUP BY n.type
+
+-- 多列分组
+SELECT n.category, n.status, COUNT(*)
+GROUP BY n.category, n.status
+
+-- 带聚合函数
+SELECT n.type, SUM(n.amount), AVG(n.balance)
+GROUP BY n.type
+</code></pre>
+
+<h4 id="having-分组过滤">HAVING 分组过滤</h4>
+
+<pre><code class="language-gql">
+-- 过滤分组结果
+SELECT n.type, COUNT(*) AS cnt
+GROUP BY n.type
+HAVING COUNT(*) &gt; 5
+
+-- 复杂 HAVING
+SELECT n.category, SUM(n.amount) AS total
+GROUP BY n.category
+HAVING SUM(n.amount) &gt; 10000 AND COUNT(*) &gt;= 3
+</code></pre>
+
+<h4 id="order-by-排序">ORDER BY 排序</h4>
+
+<pre><code class="language-gql">
+-- 升序排序（默认）
+SELECT n.name, n.created_at
+ORDER BY n.created_at
+
+-- 降序排序
+SELECT n.name, n.balance
+ORDER BY n.balance DESC
+
+-- 多列排序
+SELECT n.category, n.name, n.priority
+ORDER BY n.category ASC, n.priority DESC
+</code></pre>
+
+<h4 id="limit-和-offset-分页">LIMIT 和 OFFSET 分页</h4>
+
+<pre><code class="language-gql">
+-- 限制结果数量
+SELECT n.name
+LIMIT 10
+
+-- 分页查询
+SELECT n.name, n.created_at
+ORDER BY n.created_at DESC
+LIMIT 20 OFFSET 40
+
+-- 结合所有功能
+SELECT n.type, COUNT(*) AS cnt
+GROUP BY n.type
+HAVING COUNT(*) &gt; 5
+ORDER BY cnt DESC
+LIMIT 10 OFFSET 0
+</code></pre>
+
+<h4 id="支持的聚合函数">支持的聚合函数</h4>
+
+<table class="table">
+<thead>
+<tr>
+<th>函数</th>
+<th>描述</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>COUNT(*)</code></td>
+<td>计数</td>
+<td><code>SELECT COUNT(*)</code></td>
+</tr>
+<tr>
+<th><code>SUM(expr)</code></th>
+<th>求和</th>
+<th><code>SELECT SUM(n.amount)</code></th>
+</tr>
+<tr>
+<th><code>AVG(expr)</code></th>
+<th>平均值</th>
+<th><code>SELECT AVG(n.balance)</code></th>
+</tr>
+<tr>
+<th><code>MIN(expr)</code></th>
+<th>最小值</th>
+<th><code>SELECT MIN(n.price)</code></th>
+</tr>
+<tr>
+<th><code>MAX(expr)</code></th>
+<th>最大值</th>
+<th><code>SELECT MAX(n.score)</code></th>
+</tr>
+</tbody>
+</table>
+
+<h3 id="613-use-图切换语句-iso-gql-39075">6.13 USE 图切换语句 (ISO GQL 39075)</h3>
+
+<p>USE 语句用于切换当前查询的图上下文。</p>
+
+<pre><code class="language-gql">
+-- 切换到指定图
+USE GRAPH ethereum_mainnet
+
+-- 切换到另一个图
+USE GRAPH polygon_network
+
+-- 切换后执行查询
+USE GRAPH bsc_mainnet
+MATCH (n:Account) RETURN n LIMIT 10
+</code></pre>
+
+<h3 id="614-复合查询-iso-gql-39075">6.14 复合查询 (ISO GQL 39075)</h3>
+
+<p>支持 UNION、EXCEPT、INTERSECT、OTHERWISE 操作来组合多个查询结果。</p>
+
+<h4 id="union-联合">UNION 联合</h4>
+
+<pre><code class="language-gql">
+-- 联合查询（保留重复）
+MATCH (a:Account) RETURN a
+UNION ALL
+MATCH (c:Contract) RETURN c
+
+-- 联合查询（去除重复）
+MATCH (a:Account) RETURN a
+UNION
+MATCH (b:Account) RETURN b
+</code></pre>
+
+<h4 id="except-差集">EXCEPT 差集</h4>
+
+<pre><code class="language-gql">
+-- 差集查询
+MATCH (a:Account) RETURN a
+EXCEPT
+MATCH (b:Account {status: "inactive"}) RETURN b
+</code></pre>
+
+<h4 id="intersect-交集">INTERSECT 交集</h4>
+
+<pre><code class="language-gql">
+-- 交集查询
+MATCH (a:Account {type: "whale"}) RETURN a
+INTERSECT
+MATCH (b:Account {verified: true}) RETURN b
+</code></pre>
+
+<h4 id="otherwise-回退">OTHERWISE 回退</h4>
+
+<p>当第一个查询返回空结果时，执行第二个查询：</p>
+
+<pre><code class="language-gql">
+-- 回退查询
+MATCH (n:Account {address: "0x..."}) RETURN n
+OTHERWISE
+MATCH (n:Account) RETURN n LIMIT 1
+</code></pre>
+
+<h3 id="615-session-会话管理-iso-gql-39075">6.15 SESSION 会话管理 (ISO GQL 39075)</h3>
+
+<p>SESSION 语句用于管理查询会话的属性。</p>
+
+<h4 id="set-设置">SET 设置</h4>
+
+<pre><code class="language-gql">
+-- 设置当前模式
+SESSION SET SCHEMA main_schema
+
+-- 设置当前图
+SESSION SET GRAPH ethereum
+
+-- 设置属性图
+SESSION SET PROPERTY GRAPH financial_graph
+
+-- 设置属性值
+SESSION SET VALUE timeout = 30000
+</code></pre>
+
+<h4 id="reset-重置">RESET 重置</h4>
+
+<pre><code class="language-gql">
+-- 重置模式
+SESSION RESET SCHEMA
+
+-- 重置图
+SESSION RESET GRAPH
+
+-- 重置所有
+SESSION RESET ALL
+</code></pre>
+
+<h4 id="close-关闭">CLOSE 关闭</h4>
+
+<pre><code class="language-gql">
+-- 关闭当前会话
+SESSION CLOSE
+</code></pre>
+
+<h3 id="616-transaction-事务控制-iso-gql-39075">6.16 TRANSACTION 事务控制 (ISO GQL 39075)</h3>
+
+<p>事务控制语句用于管理数据库事务。</p>
+
+<pre><code class="language-gql">
+-- 开始读写事务
+START TRANSACTION READ WRITE
+
+-- 开始只读事务
+START TRANSACTION READ ONLY
+
+-- 提交事务
+COMMIT
+
+-- 回滚事务
+ROLLBACK
+</code></pre>
+
+<h4 id="事务使用示例">事务使用示例</h4>
+
+<pre><code class="language-gql">
+-- 典型事务流程
+START TRANSACTION READ WRITE
+INSERT (a:Account {address: "0x..."})
+INSERT (a:Account {address: "0xAAA"})-[t:Transfer {amount: 1000}]-&gt;(b:Account {address: "0xBBB"})
+COMMIT
+
+-- 发生错误时回滚
+START TRANSACTION READ WRITE
+-- ... 执行操作 ...
+ROLLBACK
+</code></pre>
+
+<h3 id="617-createdrop-graph-type-iso-gql-39075">6.17 CREATE/DROP GRAPH TYPE (ISO GQL 39075)</h3>
+
+<p>图类型定义语句用于创建和删除图类型模式。</p>
+
+<h4 id="create-graph-type">CREATE GRAPH TYPE</h4>
+
+<pre><code class="language-gql">
+-- 创建图类型
+CREATE GRAPH TYPE financial_network AS (
+  (account:Account {address STRING, balance DECIMAL}),
+  (contract:Contract {address STRING, code_hash STRING}),
+  (account)-[transfer:Transfer {amount DECIMAL}]-&gt;(account)
+)
+
+-- 简单图类型
+CREATE GRAPH TYPE simple_graph AS (
+  (node:Node {id INT, name STRING})
+)
+</code></pre>
+
+<h4 id="drop-graph-type">DROP GRAPH TYPE</h4>
+
+<pre><code class="language-gql">
+-- 删除图类型
+DROP GRAPH TYPE financial_network
+
+-- 强制删除（如果存在）
+DROP GRAPH TYPE IF EXISTS old_schema
+</code></pre>
+
+<h3 id="618-量化路径模式-iso-gql-39075">6.18 量化路径模式 (ISO GQL 39075)</h3>
+
+<p>支持可变长度路径和路径搜索前缀。</p>
+
+<h4 id="可变长度路径">可变长度路径</h4>
+
+<pre><code class="language-gql">
+-- 1 到 5 跳
+MATCH (a)-[*1..5]-&gt;(b) RETURN a, b
+
+-- 精确 3 跳
+MATCH (a)-[*3]-&gt;(b) RETURN a, b
+
+-- 0 跳或更多
+MATCH (a)-[*0..]-&gt;(b) RETURN a, b
+
+-- 任意跳数（有限制）
+MATCH (a)-[*..10]-&gt;(b) RETURN a, b
+</code></pre>
+
+<h4 id="路径搜索前缀">路径搜索前缀</h4>
+
+<pre><code class="language-gql">
+-- 最短路径
+MATCH SHORTEST (a)-[*]-&gt;(b) RETURN path
+
+-- 所有最短路径
+MATCH ALL SHORTEST (a)-[*]-&gt;(b) RETURN path
+
+-- 任意路径
+MATCH ANY (a)-[*1..10]-&gt;(b) RETURN path
+
+-- 任意最短路径
+MATCH ANY SHORTEST (a)-[*]-&gt;(b) RETURN path
+</code></pre>
+
+<h3 id="619-show-语句---查看数据库对象">6.19 SHOW 语句 - 查看数据库对象</h3>
+
+<p>SHOW 语句用于列出数据库中的各类对象。</p>
+
+<h4 id="show-graphs">SHOW GRAPHS</h4>
+
+<pre><code class="language-gql">
+-- 查看所有图
+SHOW GRAPHS
+
+-- 返回列: name, type, vertex_count, edge_count
+</code></pre>
+
+<h4 id="show-graph-types">SHOW GRAPH TYPES</h4>
+
+<pre><code class="language-gql">
+-- 查看所有图类型
+SHOW GRAPH TYPES
+
+-- 返回列: name, definition
+</code></pre>
+
+<h4 id="show-schemas">SHOW SCHEMAS</h4>
+
+<pre><code class="language-gql">
+-- 查看所有模式
+SHOW SCHEMAS
+
+-- 返回列: name
+</code></pre>
+
+<h4 id="show-labels">SHOW LABELS</h4>
+
+<pre><code class="language-gql">
+-- 查看所有顶点标签
+SHOW LABELS
+
+-- 返回列: label, description
+</code></pre>
+
+<h4 id="show-edge-types">SHOW EDGE TYPES</h4>
+
+<pre><code class="language-gql">
+-- 查看所有边类型
+SHOW EDGE TYPES
+SHOW RELATIONSHIP TYPES
+
+-- 返回列: type, description
+</code></pre>
+
+<h4 id="show-property-keys">SHOW PROPERTY KEYS</h4>
+
+<pre><code class="language-gql">
+-- 查看所有属性键
+SHOW PROPERTY KEYS
+
+-- 返回列: key, usage
+</code></pre>
+
+<h4 id="show-functions">SHOW FUNCTIONS</h4>
+
+<pre><code class="language-gql">
+-- 查看所有内置函数
+SHOW FUNCTIONS
+
+-- 返回列: name, signature, description
+</code></pre>
+
+<h4 id="show-procedures">SHOW PROCEDURES</h4>
+
+<pre><code class="language-gql">
+-- 查看所有存储过程
+SHOW PROCEDURES
+
+-- 返回列: name, signature, description
+</code></pre>
+
+<h4 id="show-indexes">SHOW INDEXES</h4>
+
+<pre><code class="language-gql">
+-- 查看所有索引
+SHOW INDEXES
+
+-- 返回列: name, type, properties
+</code></pre>
+
+<h4 id="show-constraints">SHOW CONSTRAINTS</h4>
+
+<pre><code class="language-gql">
+-- 查看所有约束
+SHOW CONSTRAINTS
+
+-- 返回列: name, type, definition
+</code></pre>
+
+<h3 id="620-describe-语句---查看对象详情">6.20 DESCRIBE 语句 - 查看对象详情</h3>
+
+<p>DESCRIBE 语句（可缩写为 DESC）用于查看数据库对象的详细信息。</p>
+
+<h4 id="describe-graph">DESCRIBE GRAPH</h4>
+
+<pre><code class="language-gql">
+-- 查看图的详细信息
+DESCRIBE GRAPH myGraph
+DESC GRAPH myGraph
+
+-- 返回属性: name, type, vertex_count, edge_count, created_at
+</code></pre>
+
+<h4 id="describe-graph-type">DESCRIBE GRAPH TYPE</h4>
+
+<pre><code class="language-gql">
+-- 查看图类型的详细信息
+DESCRIBE GRAPH TYPE myGraphType
+DESC GRAPH TYPE myType
+
+-- 返回列: element, type, properties
+</code></pre>
+
+<h4 id="describe-schema">DESCRIBE SCHEMA</h4>
+
+<pre><code class="language-gql">
+-- 查看模式的详细信息
+DESCRIBE SCHEMA public
+
+-- 返回属性: name, graphs
+</code></pre>
+
+<h4 id="describe-label">DESCRIBE LABEL</h4>
+
+<pre><code class="language-gql">
+-- 查看顶点标签的详细信息
+DESCRIBE LABEL Account
+DESCRIBE VERTEX TYPE Account
+
+-- 返回列: property, type, nullable
+</code></pre>
+
+<h4 id="describe-edge-type">DESCRIBE EDGE TYPE</h4>
+
+<pre><code class="language-gql">
+-- 查看边类型的详细信息
+DESCRIBE EDGE TYPE Transfer
+DESCRIBE RELATIONSHIP TYPE Transfer
+
+-- 返回列: property, type, nullable
+</code></pre>
+
+<hr>
+
+<h2 id="7-图算法">7. 图算法</h2>
+
+<p>ChainGraph 提供多种图算法，可通过 GQL CALL 语句或 REST API 调用。</p>
+
+<h3 id="70-gql-call-语法-iso-gql-39075">7.0 GQL CALL 语法 (ISO GQL 39075)</h3>
+
+<p>ChainGraph 完全支持 ISO GQL 39075 标准的 CALL 过程调用语法：</p>
+
+<pre><code class="language-gql">
+-- 基本语法
+CALL procedure_name(arg1, arg2, ...)
+
+-- 可选调用（不存在时返回空结果）
+OPTIONAL CALL procedure_name(arg1, arg2, ...)
+</code></pre>
+
+<h4 id="可用过程列表">可用过程列表</h4>
+
+<table class="table">
+<thead>
+<tr>
+<th>过程名</th>
+<th>参数</th>
+<th>返回字段</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>shortest_path(source, target)</code></td>
+<td>起点ID, 终点ID</td>
+<td>path, length, total_weight</td>
+<td>最短路径</td>
+</tr>
+<tr>
+<th><code>all<em>paths(source, target, max</em>depth?)</code></th>
+<th>起点, 终点, 可选深度</th>
+<th>path, length, total_weight</th>
+<th>所有路径</th>
+</tr>
+<tr>
+<th><code>trace(start, direction?, max_depth?)</code></th>
+<th>起点, 方向, 深度</th>
+<th>path, length, total_weight</th>
+<th>链路追踪</th>
+</tr>
+<tr>
+<th><code>max_flow(source, sink)</code></th>
+<th>源点, 汇点</th>
+<th>edge, flow</th>
+<th>最大流</th>
+</tr>
+<tr>
+<th><code>neighbors(vertex_id, direction?)</code></th>
+<th>顶点ID, 方向</th>
+<th>direction, neighbor_id</th>
+<th>邻居查询</th>
+</tr>
+<tr>
+<th><code>degree(vertex_id)</code></th>
+<th>顶点ID</th>
+<th>in<em>degree, out</em>degree</th>
+<th>度数查询</th>
+</tr>
+<tr>
+<th><code>connected(source, target)</code></th>
+<th>起点, 终点</th>
+<th>connected</th>
+<th>连通性检测</th>
+</tr>
+</tbody>
+</table>
+
+<h4 id="call-示例">CALL 示例</h4>
+
+<pre><code class="language-gql">
+-- 最短路径
+CALL shortest_path(1, 5)
+
+-- 所有路径（最大深度 10）
+CALL all_paths(1, 5, 10)
+
+-- 正向链路追踪
+CALL trace(1, 'forward', 5)
+
+-- 反向链路追踪
+CALL trace(1, 'backward', 5)
+
+-- 双向链路追踪
+CALL trace(1, 'both', 5)
+
+-- 最大流
+CALL max_flow(1, 100)
+
+-- 出边邻居
+CALL neighbors(1, 'out')
+
+-- 入边邻居
+CALL neighbors(1, 'in')
+
+-- 所有邻居
+CALL neighbors(1, 'both')
+
+-- 度数
+CALL degree(1)
+
+-- 连通性检测
+CALL connected(1, 100)
+
+-- 可选调用（顶点不存在时返回空）
+OPTIONAL CALL shortest_path(1, 999999)
+</code></pre>
+
+<h3 id="71-路径追踪">7.1 路径追踪</h3>
+
+<h4 id="最短路径">最短路径</h4>
+
+<p>找到两个顶点之间的最短路径。</p>
+
+<p><strong>GQL 调用：</strong></p>
+<pre><code class="language-gql">
+CALL shortest_path(1, 100)
+</code></pre>
+
+<p><strong>REST API 调用：</strong></p>
+<pre><code class="language-bash">
+POST /algorithm/shortest-path
+{
+  "source": 1,
+  "target": 100
+}
+</code></pre>
+
+<p>响应：</p>
+<pre><code class="language-json">
+{
+  "success": true,
+  "data": {
+    "vertices": [1, 42, 78, 100],
+    "edges": [101, 203, 305],
+    "length": 3,
+    "total_weight": 1500000.0
+  }
+}
+</code></pre>
+
+<h4 id="所有路径">所有路径</h4>
+
+<p>找到两个顶点之间的所有路径（限制深度）。</p>
+
+<p><strong>GQL 调用：</strong></p>
+<pre><code class="language-gql">
+CALL all_paths(1, 100, 5)
+</code></pre>
+
+<p><strong>REST API 调用：</strong></p>
+<pre><code class="language-bash">
+POST /algorithm/all-paths
+{
+  "source": 1,
+  "target": 100,
+  "max_depth": 5,
+  "k": 10  // 最多返回 10 条路径
+}
+</code></pre>
+
+<h4 id="n跳邻居">N跳邻居</h4>
+
+<p>查找指定顶点的 N 跳邻居。</p>
+
+<p><strong>GQL 调用：</strong></p>
+<pre><code class="language-gql">
+CALL trace(1, 'forward', 3)
+</code></pre>
+
+<p><strong>REST API 调用：</strong></p>
+<pre><code class="language-bash">
+POST /algorithm/trace
+{
+  "start": 1,
+  "direction": "forward",  // forward, backward, both
+  "max_depth": 3
+}
+</code></pre>
+
+<h3 id="72-最大流算法">7.2 最大流算法</h3>
+
+<p>使用 Edmonds-Karp 算法计算最大流，用于分析资金流动的最大通量。</p>
+
+<p><strong>GQL 调用：</strong></p>
+<pre><code class="language-gql">
+CALL max_flow(1, 100)
+</code></pre>
+
+<p><strong>REST API 调用：</strong></p>
+<pre><code class="language-bash">
+POST /algorithm/max-flow
+{
+  "source": 1,
+  "sink": 100
+}
+</code></pre>
+
+<p>响应：</p>
+<pre><code class="language-json">
+{
+  "success": true,
+  "data": {
+    "value": 1500000.0,
+    "flow": {
+      "(1, 42)": 500000.0,
+      "(1, 56)": 1000000.0,
+      "(42, 100)": 500000.0,
+      "(56, 100)": 1000000.0
+    },
+    "source_side": [1, 42, 56]
+  }
+}
+</code></pre>
+
+<h4 id="最大流应用场景">最大流应用场景</h4>
+
+<ol>
+<li><strong>资金瓶颈分析</strong>：找出资金流动的瓶颈路径</li>
+<li><strong>洗钱检测</strong>：识别资金分散和汇聚模式</li>
+<li><strong>风险评估</strong>：评估地址之间的资金关联强度</li>
+</ol>
+
+<h3 id="73-链路追踪">7.3 链路追踪</h3>
+
+<h4 id="正向追踪">正向追踪</h4>
+
+<p>从源地址出发，追踪资金流向。</p>
+
+<p><strong>GQL 调用：</strong></p>
+<pre><code class="language-gql">
+CALL trace(1, 'forward', 10)
+</code></pre>
+
+<p><strong>REST API 调用：</strong></p>
+<pre><code class="language-bash">
+POST /algorithm/trace
+{
+  "start": 1,
+  "direction": "forward",
+  "max_depth": 10
+}
+</code></pre>
+
+<h4 id="反向追踪">反向追踪</h4>
+
+<p>从目标地址出发，追溯资金来源。</p>
+
+<p><strong>GQL 调用：</strong></p>
+<pre><code class="language-gql">
+CALL trace(100, 'backward', 10)
+</code></pre>
+
+<p><strong>REST API 调用：</strong></p>
+<pre><code class="language-bash">
+POST /algorithm/trace
+{
+  "start": 100,
+  "direction": "backward",
+  "max_depth": 10
+}
+</code></pre>
+
+<h4 id="双向追踪">双向追踪</h4>
+
+<p>同时进行正向和反向追踪。</p>
+
+<p><strong>GQL 调用：</strong></p>
+<pre><code class="language-gql">
+CALL trace(50, 'both', 5)
+</code></pre>
+
+<p><strong>REST API 调用：</strong></p>
+<pre><code class="language-bash">
+POST /algorithm/trace
+{
+  "start": 50,
+  "direction": "both",
+  "max_depth": 5
+}
+</code></pre>
+
+<hr>
+
+<h2 id="8-rest-api-参考">8. REST API 参考</h2>
+
+<h3 id="81-通用说明">8.1 通用说明</h3>
+
+<h4 id="基础-url">基础 URL</h4>
+
+<pre><code>
+http://localhost:8080
+</code></pre>
+
+<h4 id="响应格式">响应格式</h4>
+
+<p>所有 API 返回 JSON 格式：</p>
+
+<pre><code class="language-json">
+{
+  "success": true,
+  "data": { ... },
+  "error": null
+}
+</code></pre>
+
+<p>错误响应：</p>
+
+<pre><code class="language-json">
+{
+  "success": false,
+  "data": null,
+  "error": "错误信息"
+}
+</code></pre>
+
+<h3 id="82-健康检查">8.2 健康检查</h3>
+
+<pre><code>
+GET /health
+</code></pre>
+
+<p><strong>响应：</strong></p>
+
+<pre><code class="language-json">
+{
+  "status": "ok",
+  "version": "0.1.0"
+}
+</code></pre>
+
+<h3 id="83-查询接口">8.3 查询接口</h3>
+
+<h4 id="执行-gql-查询">执行 GQL 查询</h4>
+
+<pre><code>
+POST /query
+Content-Type: application/json
+</code></pre>
+
+<p><strong>请求体：</strong></p>
+
+<pre><code class="language-json">
+{
+  "query": "MATCH (n:Account) RETURN n LIMIT 10"
+}
+</code></pre>
+
+<p><strong>响应：</strong></p>
+
+<pre><code class="language-json">
+{
+  "success": true,
+  "data": {
+    "columns": ["n"],
+    "rows": [
+      [{"id": 1, "label": "Account", "address": "0x..."}]
+    ],
+    "stats": {
+      "execution_time_ms": 5,
+      "vertices_scanned": 1000,
+      "edges_scanned": 0
+    }
+  }
+}
+</code></pre>
+
+<h3 id="84-顶点接口">8.4 顶点接口</h3>
+
+<h4 id="获取顶点">获取顶点</h4>
+
+<pre><code>
+GET /vertices/{id}
+</code></pre>
+
+<p><strong>响应：</strong></p>
+
+<pre><code class="language-json">
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "label": "Account",
+    "address": "0x742d35Cc...",
+    "properties": {
+      "balance": "1000000000000000000",
+      "nonce": 42
+    }
+  }
+}
+</code></pre>
+
+<h4 id="通过地址获取顶点">通过地址获取顶点</h4>
+
+<pre><code>
+GET /vertices/address/{address}
+</code></pre>
+
+<h3 id="85-边接口">8.5 边接口</h3>
+
+<h4 id="获取边">获取边</h4>
+
+<pre><code>
+GET /edges/{id}
+</code></pre>
+
+<h4 id="获取顶点的出边">获取顶点的出边</h4>
+
+<pre><code>
+GET /vertices/{id}/outgoing
+</code></pre>
+
+<h4 id="获取顶点的入边">获取顶点的入边</h4>
+
+<pre><code>
+GET /vertices/{id}/incoming
+</code></pre>
+
+<h3 id="86-算法接口">8.6 算法接口</h3>
+
+<h4 id="最短路径">最短路径</h4>
+
+<pre><code>
+POST /algorithm/shortest-path
+</code></pre>
+
+<p><strong>请求体：</strong></p>
+
+<pre><code class="language-json">
+{
+  "source": 1,
+  "target": 100
+}
+</code></pre>
+
+<h4 id="所有路径">所有路径</h4>
+
+<pre><code>
+POST /algorithm/all-paths
+</code></pre>
+
+<p><strong>请求体：</strong></p>
+
+<pre><code class="language-json">
+{
+  "source": 1,
+  "target": 100,
+  "max_depth": 5,
+  "k": 10
+}
+</code></pre>
+
+<h4 id="最大流">最大流</h4>
+
+<pre><code>
+POST /algorithm/max-flow
+</code></pre>
+
+<p><strong>请求体：</strong></p>
+
+<pre><code class="language-json">
+{
+  "source": 1,
+  "sink": 100
+}
+</code></pre>
+
+<h4 id="链路追踪">链路追踪</h4>
+
+<pre><code>
+POST /algorithm/trace
+</code></pre>
+
+<p><strong>请求体：</strong></p>
+
+<pre><code class="language-json">
+{
+  "start": 1,
+  "direction": "forward",
+  "max_depth": 10
+}
+</code></pre>
+
+<h3 id="87-统计接口">8.7 统计接口</h3>
+
+<pre><code>
+GET /stats
+</code></pre>
+
+<p><strong>响应：</strong></p>
+
+<pre><code class="language-json">
+{
+  "success": true,
+  "data": {
+    "vertex_count": 1000000,
+    "edge_count": 5000000,
+    "buffer_pool_size": 1024,
+    "cached_pages": 512
+  }
+}
+</code></pre>
+
+<hr>
+
+<h2 id="9-数据导入">9. 数据导入</h2>
+
+<h3 id="91-csv-格式">9.1 CSV 格式</h3>
+
+<h4 id="顶点-csv">顶点 CSV</h4>
+
+<pre><code class="language-csv">
+address,label,balance,nonce
+0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0,Account,1000000000000000000,42
+0xdAC17F958D2ee523a2206206994597C13D831ec7,Contract,0,0
+</code></pre>
+
+<h4 id="边-csv">边 CSV</h4>
+
+<pre><code class="language-csv">
+from_address,to_address,label,amount,tx_hash,block_number
+0x742d35Cc...,0xdAC17F958D2...,Transfer,1000000000000000000,0x...,15000000
+</code></pre>
+
+<h3 id="92-json-格式">9.2 JSON 格式</h3>
+
+<p>使用 JSONL（每行一个 JSON 对象）格式。</p>
+
+<h4 id="顶点-jsonl">顶点 JSONL</h4>
+
+<pre><code class="language-json">
+{"type":"vertex","label":"Account","address":"0x742d35Cc...","properties":{"balance":"1000","nonce":42}}
+{"type":"vertex","label":"Contract","address":"0xdAC17F958D2...","properties":{"name":"USDT"}}
+</code></pre>
+
+<h4 id="边-jsonl">边 JSONL</h4>
+
+<pre><code class="language-json">
+{"type":"edge","label":"Transfer","from":"0x742d35Cc...","to":"0xdAC17F958D2...","properties":{"amount":"1000","tx_hash":"0x..."}}
+</code></pre>
+
+<h3 id="93-导入命令">9.3 导入命令</h3>
+
+<pre><code class="language-bash">
+# CSV 导入
+./chaingraph-import \
+    --input vertices.csv \
+    --format csv \
+    --data-dir ./data \
+    --batch-size 10000
+
+# JSONL 导入（并行）
+./chaingraph-import \
+    --input data.jsonl \
+    --format jsonl \
+    --data-dir ./data \
+    --parallel \
+    --batch-size 50000
+</code></pre>
+
+<h3 id="94-导入参数">9.4 导入参数</h3>
+
+<table class="table">
+<thead>
+<tr>
+<th>参数</th>
+<th>默认值</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--input</code></td>
+<td>必需</td>
+<td>输入文件路径</td>
+</tr>
+<tr>
+<th><code>--format</code></th>
+<th><code>csv</code></th>
+<th>文件格式：csv, jsonl</th>
+</tr>
+<tr>
+<th><code>--data-dir</code></th>
+<th><code>./data</code></th>
+<th>数据目录</th>
+</tr>
+<tr>
+<th><code>--batch-size</code></th>
+<th><code>10000</code></th>
+<th>批次大小</th>
+</tr>
+<tr>
+<th><code>--parallel</code></th>
+<th><code>false</code></th>
+<th>启用并行导入</th>
+</tr>
+</tbody>
+</table>
+
+<h3 id="95-导入统计">9.5 导入统计</h3>
+
+<p>导入完成后会显示统计信息：</p>
+
+<pre><code>
+导入完成！
+├─ 顶点: 1,000,000
+├─ 边: 5,000,000
+├─ 错误: 0
+└─ 耗时: 120.5 秒
+</code></pre>
+
+<h3 id="96-gql-dml-导入">9.6 GQL DML 导入</h3>
+
+<p>除了使用文件导入外，还可以使用 GQL INSERT 语句直接导入数据，适用于小批量数据或交互式操作。</p>
+
+<h4 id="交互式导入">交互式导入</h4>
+
+<p>在 CLI 中直接执行 INSERT 语句：</p>
+
+<pre><code class="language-bash">
+# 启动 CLI
+./chaingraph-cli --data-dir ./data
+
+# 在交互模式中执行 INSERT
+chaingraph&gt; INSERT (alice:Account {address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0"})
+inserted_vertices | inserted_edges
+------------------------------
+1 | 0
+
+chaingraph&gt; INSERT (a:Account {address: "0x742d35Cc..."})-[t:Transfer {amount: 1000}]-&gt;(b:Account {address: "0x8ba1f1..."})
+inserted_vertices | inserted_edges
+------------------------------
+2 | 1
+</code></pre>
+
+<h4 id="批量导入脚本">批量导入脚本</h4>
+
+<p>可以通过管道将多条语句传入 CLI：</p>
+
+<pre><code class="language-bash">
+# 从文件导入
+cat examples/sample_dml.gql | grep -v "^--" | ./chaingraph-cli --data-dir ./data
+
+# 使用 echo 批量导入
+echo 'INSERT (a:Account {address: "0xAAA..."})
+INSERT (b:Account {address: "0xBBB..."})
+INSERT (a:Account {address: "0xAAA..."})-[t:Transfer {amount: 500}]-&gt;(b:Account {address: "0xBBB..."})
+stats
+quit' | ./chaingraph-cli --data-dir ./data
+</code></pre>
+
+<h4 id="单条命令执行">单条命令执行</h4>
+
+<p>使用 <code>-e</code> 参数执行单条 GQL 语句：</p>
+
+<pre><code class="language-bash">
+./chaingraph-cli --data-dir ./data -e 'INSERT (n:Account {address: "0x742d35Cc..."})'
+</code></pre>
+
+<h4 id="示例数据文件">示例数据文件</h4>
+
+<p>项目提供了示例数据文件 <code>examples/sample_dml.gql</code>，包含：</p>
+
+<ul>
+<li>5 个账户顶点 (Alice, Bob, Charlie, Dave, Eve)</li>
+<li>2 个合约顶点 (Uniswap, AAVE)</li>
+<li>资金流转链路 (形成环路)</li>
+<li>DeFi 交互交易</li>
+<li>可疑资金拆分链路</li>
+</ul>
+
+<pre><code class="language-bash">
+# 执行示例导入脚本
+./examples/import_sample_data.sh ./data
+</code></pre>
+
+<hr>
+
+<h2 id="10-命令行工具">10. 命令行工具</h2>
+
+<h3 id="101-启动-cli">10.1 启动 CLI</h3>
+
+<pre><code class="language-bash">
+./chaingraph-cli --data-dir ./data
+</code></pre>
+
+<h3 id="102-交互式命令">10.2 交互式命令</h3>
+
+<pre><code>
+ChainGraph CLI v0.1.0
+输入 GQL 查询或命令。输入 'help' 查看帮助。
+
+chaingraph&gt; MATCH (n:Account) RETURN n LIMIT 5
+┌────┬─────────────────────────────────────────────┬─────────────┐
+│ ID │ Address                                     │ Balance     │
+├────┼─────────────────────────────────────────────┼─────────────┤
+│ 1  │ 0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0 │ 1.0 ETH     │
+│ 2  │ 0xdAC17F958D2ee523a2206206994597C13D831ec7 │ 0.0 ETH     │
+└────┴─────────────────────────────────────────────┴─────────────┘
+
+5 行结果，耗时 2ms
+
+chaingraph&gt; 
+</code></pre>
+
+<h3 id="103-内置命令">10.3 内置命令</h3>
+
+<table class="table">
+<thead>
+<tr>
+<th>命令</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>help</code></td>
+<td>显示帮助信息</td>
+</tr>
+<tr>
+<th><code>stats</code></th>
+<th>显示数据库统计</th>
+</tr>
+<tr>
+<th><code>vertex <ID></code></th>
+<th>查看顶点详情</th>
+</tr>
+<tr>
+<th><code>path <source> <target></code></th>
+<th>快速查找最短路径</th>
+</tr>
+<tr>
+<th><code>trace <start> [direction] [depth]</code></th>
+<th>快速链路追踪</th>
+</tr>
+<tr>
+<th><code>maxflow <source> <sink></code></th>
+<th>快速计算最大流</th>
+</tr>
+<tr>
+<th><code>clear</code></th>
+<th>清屏</th>
+</tr>
+<tr>
+<th><code>exit</code> 或 <code>quit</code></th>
+<th>退出</th>
+</tr>
+</tbody>
+</table>
+
+<h3 id="104-gql-call-过程调用">10.4 GQL CALL 过程调用</h3>
+
+<p>ChainGraph CLI 完全支持 ISO GQL 39075 标准的 CALL 语句：</p>
+
+<pre><code class="language-bash">
+# 查找最短路径
+chaingraph&gt; CALL shortest_path(1, 100)
+
+path                   | length | total_weight
+-----------------------------------------------
+1 -&gt; 42 -&gt; 78 -&gt; 100   | 3      | 1500000.0
+
+1 行结果 (耗时 1 ms)
+
+# 查找所有路径
+chaingraph&gt; CALL all_paths(1, 100, 5)
+
+path                   | length | total_weight
+-----------------------------------------------
+1 -&gt; 42 -&gt; 100         | 2      | 800000.0
+1 -&gt; 42 -&gt; 78 -&gt; 100   | 3      | 1500000.0
+1 -&gt; 56 -&gt; 89 -&gt; 100   | 3      | 1200000.0
+
+3 行结果 (耗时 2 ms)
+
+# 链路追踪（正向）
+chaingraph&gt; CALL trace(1, 'forward', 3)
+
+path                          | length | total_weight
+------------------------------------------------------
+1 -&gt; 42                       | 1      | 100000.0
+1 -&gt; 42 -&gt; 78                 | 2      | 250000.0
+1 -&gt; 42 -&gt; 78 -&gt; 100          | 3      | 400000.0
+1 -&gt; 56                       | 1      | 150000.0
+...
+
+# 链路追踪（反向）
+chaingraph&gt; CALL trace(100, 'backward', 3)
+
+# 最大流计算
+chaingraph&gt; CALL max_flow(1, 100)
+
+edge            | flow
+--------------------------
+max_flow_value  | 1500000.0
+1 -&gt; 42         | 500000.0
+1 -&gt; 56         | 1000000.0
+42 -&gt; 100       | 500000.0
+56 -&gt; 100       | 1000000.0
+
+5 行结果 (耗时 5 ms)
+
+# 邻居查询
+chaingraph&gt; CALL neighbors(1, 'out')
+
+direction | neighbor_id
+------------------------
+out       | 42
+out       | 56
+out       | 78
+
+3 行结果 (耗时 0 ms)
+
+# 度数查询
+chaingraph&gt; CALL degree(1)
+
+in_degree | out_degree
+----------------------
+2         | 5
+
+1 行结果 (耗时 0 ms)
+
+# 连通性检测
+chaingraph&gt; CALL connected(1, 100)
+
+connected
+---------
+true
+
+1 行结果 (耗时 1 ms)
+
+# 可选调用（顶点不存在时不报错）
+chaingraph&gt; OPTIONAL CALL shortest_path(1, 999999)
+
+result
+------
+未找到路径
+
+1 行结果 (耗时 0 ms)
+</code></pre>
+
+<h3 id="105-单次执行">10.5 单次执行</h3>
+
+<pre><code class="language-bash">
+# 执行单个查询
+./chaingraph-cli -e "MATCH (n:Account) RETURN n LIMIT 10"
+
+# 执行 CALL 语句
+./chaingraph-cli -e "CALL shortest_path(1, 100)"
+
+# 执行链路追踪
+./chaingraph-cli -e "CALL trace(1, 'forward', 5)"
+</code></pre>
+
+<hr>
+
+<h2 id="11-性能调优">11. 性能调优</h2>
+
+<h3 id="111-缓冲池大小">11.1 缓冲池大小</h3>
+
+<p>缓冲池是影响性能的关键因素。</p>
+
+<pre><code class="language-bash">
+# 小规模数据（&lt; 10 GB）
+--buffer-size 512    # 2 MB
+
+# 中等规模（10-100 GB）
+--buffer-size 4096   # 16 MB
+
+# 大规模数据（&gt; 100 GB）
+--buffer-size 16384  # 64 MB
+</code></pre>
+
+<p><strong>经验法则</strong>：缓冲池大小应为可用内存的 10-25%。</p>
+
+<h3 id="112-存储优化">11.2 存储优化</h3>
+
+<ol>
+<li><strong>使用 NVMe SSD</strong>：比 SATA SSD 快 3-5 倍</li>
+<li><strong>文件系统</strong>：推荐 ext4 或 xfs</li>
+<li><strong>挂载选项</strong>：使用 <code>noatime</code> 减少写入</li>
+</ol>
+
+<pre><code class="language-bash">
+# 推荐的挂载选项
+mount -o noatime,nodiratime /dev/nvme0n1 /data
+</code></pre>
+
+<h3 id="113-查询优化">11.3 查询优化</h3>
+
+<ol>
+<li><strong>使用 LIMIT</strong>：避免返回过多结果</li>
+<li><strong>精确匹配</strong>：使用地址索引</li>
+<li><strong>限制路径深度</strong>：避免过深的路径搜索</li>
+</ol>
+
+<pre><code class="language-gql">
+-- 好的查询
+MATCH (n:Account {address: "0x..."}) RETURN n
+
+-- 避免的查询
+MATCH (n) RETURN n  -- 全表扫描
+</code></pre>
+
+<h3 id="114-导入优化">11.4 导入优化</h3>
+
+<ol>
+<li><strong>增大批次</strong>：<code>--batch-size 50000</code></li>
+<li><strong>启用并行</strong>：<code>--parallel</code></li>
+<li><strong>禁用日志</strong>：生产环境可关闭详细日志</li>
+</ol>
+
+<hr>
+
+<h2 id="12-最佳实践">12. 最佳实践</h2>
+
+<h3 id="121-数据建模">12.1 数据建模</h3>
+
+<ol>
+<li><strong>合理使用标签</strong>：为不同类型的实体使用不同标签</li>
+<li><strong>属性规范化</strong>：统一属性命名和类型</li>
+<li><strong>避免过度嵌套</strong>：保持图结构扁平</li>
+</ol>
+
+<h3 id="122-查询建议">12.2 查询建议</h3>
+
+<pre><code class="language-gql">
+-- ✅ 推荐：使用索引字段
+MATCH (n:Account {address: "0x..."}) RETURN n
+
+-- ❌ 避免：全图扫描
+MATCH (n) WHERE n.balance &gt; 1000 RETURN n
+
+-- ✅ 推荐：限制路径深度
+MATCH path = (a)-[:Transfer*1..3]-&gt;(b) RETURN path
+
+-- ❌ 避免：无限深度
+MATCH path = (a)-[:Transfer*]-&gt;(b) RETURN path
+</code></pre>
+
+<h3 id="123-运维建议">12.3 运维建议</h3>
+
+<ol>
+<li><strong>定期备份</strong>：备份数据目录</li>
+<li><strong>监控指标</strong>：关注缓冲池命中率</li>
+<li><strong>日志分析</strong>：定期检查错误日志</li>
+</ol>
+
+<hr>
+
+<h2 id="13-故障排除">13. 故障排除</h2>
+
+<h3 id="131-常见问题">13.1 常见问题</h3>
+
+<h4 id="服务无法启动">服务无法启动</h4>
+
+<pre><code>
+Error: Failed to bind to address
+</code></pre>
+
+<p><strong>解决方案</strong>：检查端口是否被占用</p>
+
+<pre><code class="language-bash">
+lsof -i :8080
+</code></pre>
+
+<h4 id="内存不足">内存不足</h4>
+
+<pre><code>
+Error: Out of memory
+</code></pre>
+
+<p><strong>解决方案</strong>：减小缓冲池大小或增加系统内存</p>
+
+<h4 id="磁盘空间不足">磁盘空间不足</h4>
+
+<pre><code>
+Error: No space left on device
+</code></pre>
+
+<p><strong>解决方案</strong>：清理磁盘空间或迁移数据目录</p>
+
+<h3 id="132-性能问题">13.2 性能问题</h3>
+
+<h4 id="查询缓慢">查询缓慢</h4>
+
+<ol>
+<li>检查缓冲池命中率：<code>GET /stats</code></li>
+<li>优化查询语句</li>
+<li>增加缓冲池大小</li>
+</ol>
+
+<h4 id="导入缓慢">导入缓慢</h4>
+
+<ol>
+<li>检查磁盘 I/O</li>
+<li>增大批次大小</li>
+<li>启用并行导入</li>
+</ol>
+
+<h3 id="133-数据问题">13.3 数据问题</h3>
+
+<h4 id="数据校验失败">数据校验失败</h4>
+
+<pre><code>
+Error: Checksum mismatch
+</code></pre>
+
+<p><strong>解决方案</strong>：数据可能已损坏，从备份恢复</p>
+
+<hr>
+
+<h2 id="附录">附录</h2>
+
+<h3 id="a-gql-语法参考">A. GQL 语法参考</h3>
+
+<pre><code class="language-bnf">
+&lt;statement&gt;     ::= &lt;match-stmt&gt; | &lt;insert-stmt&gt; | &lt;delete-stmt&gt; | &lt;update-stmt&gt;
+
+&lt;match-stmt&gt;    ::= MATCH &lt;pattern&gt; [WHERE &lt;expression&gt;] RETURN &lt;return-items&gt;
+                    [ORDER BY &lt;order-items&gt;] [SKIP &lt;integer&gt;] [LIMIT &lt;integer&gt;]
+
+&lt;pattern&gt;       ::= &lt;path-pattern&gt; (',' &lt;path-pattern&gt;)*
+
+&lt;path-pattern&gt;  ::= &lt;node-pattern&gt; (&lt;relationship-pattern&gt; &lt;node-pattern&gt;)*
+
+&lt;node-pattern&gt;  ::= '(' [&lt;variable&gt;] [':' &lt;label&gt;] [&lt;properties&gt;] ')'
+
+&lt;relationship&gt;  ::= '-[' [&lt;variable&gt;] [':' &lt;label&gt;] ['*' &lt;length&gt;] [&lt;properties&gt;] ']-&gt;'
+                  | '&lt;-[' [&lt;variable&gt;] [':' &lt;label&gt;] ['*' &lt;length&gt;] [&lt;properties&gt;] ']-'
+
+&lt;properties&gt;    ::= '{' &lt;property&gt; (',' &lt;property&gt;)* '}'
+
+&lt;property&gt;      ::= &lt;identifier&gt; ':' &lt;value&gt;
+</code></pre>
+
+<h3 id="b-错误代码">B. 错误代码</h3>
+
+<table class="table">
+<thead>
+<tr>
+<th>代码</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>E001</code></td>
+<td>顶点不存在</td>
+</tr>
+<tr>
+<th><code>E002</code></th>
+<th>边不存在</th>
+</tr>
+<tr>
+<th><code>E003</code></th>
+<th>存储错误</th>
+</tr>
+<tr>
+<th><code>E004</code></th>
+<th>解析错误</th>
+</tr>
+<tr>
+<th><code>E005</code></th>
+<th>查询错误</th>
+</tr>
+<tr>
+<th><code>E006</code></th>
+<th>校验和不匹配</th>
+</tr>
+<tr>
+<th><code>E007</code></th>
+<th>服务器错误</th>
+</tr>
+</tbody>
+</table>
+
+<h3 id="c-版本历史">C. 版本历史</h3>
+
+<table class="table">
+<thead>
+<tr>
+<th>版本</th>
+<th>日期</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0.1.0</td>
+<td>2024-12</td>
+<td>初始版本</td>
+</tr>
+</tbody>
+</table>
+
+<hr>
+
+<p>© 2024 ChainGraph. All rights reserved.</p>
+
+        </main>
+    </div>
+    <script>
+        // 生成目录
+        document.addEventListener('DOMContentLoaded', function() {
+            const toc = document.getElementById('toc');
+            const headings = document.querySelectorAll('h1, h2, h3');
+            let tocHtml = '<ul>';
+            headings.forEach(function(heading) {
+                const level = parseInt(heading.tagName.charAt(1));
+                const text = heading.textContent;
+                const id = heading.id;
+                const indent = (level - 1) * 15;
+                tocHtml += `<li style="margin-left: ${indent}px"><a href="#${id}">${text}</a></li>`;
+            });
+            tocHtml += '</ul>';
+            toc.innerHTML = tocHtml;
+        });
+    </script>
+</body>
+</html>

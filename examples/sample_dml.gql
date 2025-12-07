@@ -1,0 +1,53 @@
+-- ============================================================
+-- ChainGraph 示例数据 - 直接在 CLI 交互模式下粘贴执行
+-- ============================================================
+-- 每条语句单独一行，可直接粘贴到 CLI 中执行
+-- ============================================================
+
+-- 1. 插入账户顶点
+INSERT (alice:Account {address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0"})
+INSERT (bob:Account {address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72"})
+INSERT (charlie:Account {address: "0xdD2FD4581271e230360230F9337D5c0430Bf44C0"})
+INSERT (dave:Account {address: "0x2546BcD3c84621e976D8185a91A922aE77ECEc30"})
+INSERT (eve:Account {address: "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E"})
+
+-- 2. 插入合约顶点
+INSERT (uniswap:Contract {address: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"})
+INSERT (aave:Contract {address: "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9"})
+
+-- 3. 插入转账边 (形成链路: Alice -> Bob -> Charlie -> Dave -> Eve -> Alice)
+INSERT (a:Account {address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0"})-[t:Transfer {amount: 1000, block: 18500000}]->(b:Account {address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72"})
+INSERT (b:Account {address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72"})-[t:Transfer {amount: 500, block: 18500001}]->(c:Account {address: "0xdD2FD4581271e230360230F9337D5c0430Bf44C0"})
+INSERT (c:Account {address: "0xdD2FD4581271e230360230F9337D5c0430Bf44C0"})-[t:Transfer {amount: 300, block: 18500002}]->(d:Account {address: "0x2546BcD3c84621e976D8185a91A922aE77ECEc30"})
+INSERT (d:Account {address: "0x2546BcD3c84621e976D8185a91A922aE77ECEc30"})-[t:Transfer {amount: 200, block: 18500003}]->(e:Account {address: "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E"})
+INSERT (e:Account {address: "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E"})-[t:Transfer {amount: 100, block: 18500004}]->(a:Account {address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0"})
+
+-- 4. DeFi 交互
+INSERT (a:Account {address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0"})-[t:Transfer {amount: 2000, block: 18500010}]->(uni:Contract {address: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"})
+INSERT (uni:Contract {address: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"})-[t:Transfer {amount: 1950, block: 18500010}]->(a:Account {address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0"})
+INSERT (b:Account {address: "0x8ba1f109551bD432803012645Ac136ddd64DBA72"})-[t:Transfer {amount: 3000, block: 18500020}]->(aave:Contract {address: "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9"})
+INSERT (aave:Contract {address: "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9"})-[t:Transfer {amount: 5000, block: 18500021}]->(c:Account {address: "0xdD2FD4581271e230360230F9337D5c0430Bf44C0"})
+
+-- 5. 可疑交易链路 (资金拆分)
+INSERT (e:Account {address: "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E"})-[t:Transfer {amount: 25000, block: 18600000}]->(mixer:Account {address: "0x1234567890123456789012345678901234567890"})
+INSERT (mixer:Account {address: "0x1234567890123456789012345678901234567890"})-[t:Transfer {amount: 8000, block: 18600001}]->(out1:Account {address: "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"})
+INSERT (mixer:Account {address: "0x1234567890123456789012345678901234567890"})-[t:Transfer {amount: 8000, block: 18600002}]->(out2:Account {address: "0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"})
+INSERT (mixer:Account {address: "0x1234567890123456789012345678901234567890"})-[t:Transfer {amount: 9000, block: 18600003}]->(out3:Account {address: "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"})
+
+-- ============================================================
+-- 数据导入完成后，可执行以下查询 (ISO GQL 39075 语法):
+-- ============================================================
+-- stats                                    # 查看图统计信息
+-- MATCH (n:Account) RETURN n               # 查询所有账户
+-- CALL shortest_path(1, 5)                 # 查找顶点1到5的最短路径
+-- CALL all_paths(1, 5, 10)                 # 查找所有路径(最大深度10)
+-- CALL trace(1, 'forward', 5)              # 正向追踪(深度5)
+-- CALL trace(5, 'backward', 5)             # 反向追踪(追溯资金来源)
+-- CALL trace(1, 'both', 3)                 # 双向追踪
+-- CALL max_flow(1, 5)                      # 计算最大流
+-- CALL neighbors(1, 'both')                # 查看顶点1的邻居
+-- CALL neighbors(1, 'out')                 # 查看顶点1的出边邻居
+-- CALL neighbors(1, 'in')                  # 查看顶点1的入边邻居
+-- CALL degree(1)                           # 查看顶点1的度数
+-- CALL connected(1, 5)                     # 检查是否连通
+-- OPTIONAL CALL shortest_path(1, 999)      # 可选调用(不存在时返回空)

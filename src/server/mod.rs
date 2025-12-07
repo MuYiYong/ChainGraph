@@ -1,0 +1,342 @@
+//! HTTP 服务器模块
+//!
+//! 提供 REST API 和 GQL 查询接口
+
+use crate::algorithm::{EdmondsKarp, PathFinder, TraceDirection};
+use crate::error::{Error, Result};
+use crate::graph::{Edge, EdgeId, Graph, Vertex, VertexId};
+use crate::query::{GqlParser, QueryExecutor};
+use crate::types::Address;
+use axum::{
+    extract::{Path, Query, State},
+    http::StatusCode,
+    response::{IntoResponse, Json},
+    routing::{get, post},
+    Router,
+};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use tokio::net::TcpListener;
+
+/// 服务器配置
+#[derive(Debug, Clone)]
+pub struct ServerConfig {
+    pub host: String,
+    pub port: u16,
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            host: "127.0.0.1".to_string(),
+            port: 8080,
+        }
+    }
+}
+
+/// 应用状态
+#[derive(Clone)]
+pub struct AppState {
+    pub graph: Arc<Graph>,
+}
+
+/// 启动服务器
+pub async fn start_server(config: ServerConfig, graph: Arc<Graph>) -> Result<()> {
+    let state = AppState { graph };
+
+    let app = Router::new()
+        // 健康检查
+        .route("/health", get(health_check))
+        // GQL 查询
+        .route("/query", post(execute_query))
+        // 顶点操作
+        .route("/vertices/:id", get(get_vertex))
+        .route("/vertices/address/:address", get(get_vertex_by_address))
+        // 边操作
+        .route("/edges/:id", get(get_edge))
+        .route("/vertices/:id/outgoing", get(get_outgoing_edges))
+        .route("/vertices/:id/incoming", get(get_incoming_edges))
+        // 图算法
+        .route("/algorithm/shortest-path", post(shortest_path))
+        .route("/algorithm/all-paths", post(all_paths))
+        .route("/algorithm/max-flow", post(max_flow))
+        .route("/algorithm/trace", post(trace_path))
+        // 统计信息
+        .route("/stats", get(get_stats))
+        .with_state(state);
+
+    let addr = format!("{}:{}", config.host, config.port);
+    println!("ChainGraph 服务器启动于 http://{}", addr);
+
+    let listener = TcpListener::bind(&addr)
+        .await
+        .map_err(|e| Error::ServerError(format!("绑定地址失败: {}", e)))?;
+
+    axum::serve(listener, app)
+        .await
+        .map_err(|e| Error::ServerError(format!("服务器错误: {}", e)))?;
+
+    Ok(())
+}
+
+// ==================== 处理器 ====================
+
+async fn health_check() -> impl IntoResponse {
+    Json(serde_json::json!({
+        "status": "ok",
+        "version": env!("CARGO_PKG_VERSION")
+    }))
+}
+
+/// GQL 查询请求
+#[derive(Debug, Deserialize)]
+pub struct QueryRequest {
+    pub query: String,
+}
+
+/// 执行 GQL 查询
+async fn execute_query(
+    State(state): State<AppState>,
+    Json(req): Json<QueryRequest>,
+) -> axum::response::Response {
+    let executor = QueryExecutor::new(state.graph);
+
+    match GqlParser::new(&req.query).parse() {
+        Ok(stmt) => match executor.execute(&stmt) {
+            Ok(result) => (StatusCode::OK, Json(ApiResponse::success(result))).into_response(),
+            Err(e) => (
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse::<()>::error(&format!("执行错误: {}", e))),
+            )
+                .into_response(),
+        },
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::error(&format!("解析错误: {}", e))),
+        )
+            .into_response(),
+    }
+}
+
+/// 获取顶点
+async fn get_vertex(
+    State(state): State<AppState>,
+    Path(id): Path<u64>,
+) -> axum::response::Response {
+    match state.graph.get_vertex(VertexId::new(id)) {
+        Some(vertex) => (StatusCode::OK, Json(ApiResponse::success(vertex))).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::error("顶点不存在")),
+        )
+            .into_response(),
+    }
+}
+
+/// 通过地址获取顶点
+async fn get_vertex_by_address(
+    State(state): State<AppState>,
+    Path(address): Path<String>,
+) -> axum::response::Response {
+    match Address::from_hex(&address) {
+        Ok(addr) => match state.graph.get_vertex_by_address(&addr) {
+            Some(vertex) => (StatusCode::OK, Json(ApiResponse::success(vertex))).into_response(),
+            None => (
+                StatusCode::NOT_FOUND,
+                Json(ApiResponse::<()>::error("顶点不存在")),
+            )
+                .into_response(),
+        },
+        Err(_) => (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::error("无效地址格式")),
+        )
+            .into_response(),
+    }
+}
+
+/// 获取边
+async fn get_edge(State(state): State<AppState>, Path(id): Path<u64>) -> axum::response::Response {
+    match state.graph.get_edge(EdgeId::new(id)) {
+        Some(edge) => (StatusCode::OK, Json(ApiResponse::success(edge))).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::error("边不存在")),
+        )
+            .into_response(),
+    }
+}
+
+/// 获取出边
+async fn get_outgoing_edges(
+    State(state): State<AppState>,
+    Path(id): Path<u64>,
+) -> impl IntoResponse {
+    let edges = state.graph.get_outgoing_edges(VertexId::new(id));
+    (StatusCode::OK, Json(ApiResponse::success(edges)))
+}
+
+/// 获取入边
+async fn get_incoming_edges(
+    State(state): State<AppState>,
+    Path(id): Path<u64>,
+) -> impl IntoResponse {
+    let edges = state.graph.get_incoming_edges(VertexId::new(id));
+    (StatusCode::OK, Json(ApiResponse::success(edges)))
+}
+
+/// 路径请求
+#[derive(Debug, Deserialize)]
+pub struct PathRequest {
+    pub source: u64,
+    pub target: u64,
+    #[serde(default = "default_max_depth")]
+    pub max_depth: usize,
+    #[serde(default = "default_k")]
+    pub k: usize,
+}
+
+fn default_max_depth() -> usize {
+    10
+}
+
+fn default_k() -> usize {
+    5
+}
+
+/// 最短路径
+async fn shortest_path(
+    State(state): State<AppState>,
+    Json(req): Json<PathRequest>,
+) -> axum::response::Response {
+    let finder = PathFinder::new(state.graph);
+    let result = finder.shortest_path(VertexId::new(req.source), VertexId::new(req.target));
+
+    match result {
+        Some(path) => (StatusCode::OK, Json(ApiResponse::success(path))).into_response(),
+        None => (StatusCode::OK, Json(ApiResponse::<()>::error("路径不存在"))).into_response(),
+    }
+}
+
+/// 所有路径
+async fn all_paths(
+    State(state): State<AppState>,
+    Json(req): Json<PathRequest>,
+) -> impl IntoResponse {
+    let finder = PathFinder::new(state.graph);
+    let paths = finder.all_paths(
+        VertexId::new(req.source),
+        VertexId::new(req.target),
+        req.max_depth,
+    );
+
+    (StatusCode::OK, Json(ApiResponse::success(paths)))
+}
+
+/// 最大流请求
+#[derive(Debug, Deserialize)]
+pub struct MaxFlowRequest {
+    pub source: u64,
+    pub sink: u64,
+}
+
+/// 最大流
+async fn max_flow(
+    State(state): State<AppState>,
+    Json(req): Json<MaxFlowRequest>,
+) -> impl IntoResponse {
+    let algo = EdmondsKarp::new(state.graph);
+    let result = algo.max_flow(VertexId::new(req.source), VertexId::new(req.sink));
+
+    (StatusCode::OK, Json(ApiResponse::success(result)))
+}
+
+/// 追踪请求
+#[derive(Debug, Deserialize)]
+pub struct TraceRequest {
+    pub start: u64,
+    #[serde(default = "default_direction")]
+    pub direction: String,
+    #[serde(default = "default_max_depth")]
+    pub max_depth: usize,
+}
+
+fn default_direction() -> String {
+    "forward".to_string()
+}
+
+/// 路径追踪
+async fn trace_path(
+    State(state): State<AppState>,
+    Json(req): Json<TraceRequest>,
+) -> impl IntoResponse {
+    let finder = PathFinder::new(state.graph);
+
+    let direction = match req.direction.as_str() {
+        "backward" => TraceDirection::Backward,
+        "both" => TraceDirection::Both,
+        _ => TraceDirection::Forward,
+    };
+
+    let traces = finder.trace(VertexId::new(req.start), direction, req.max_depth, None);
+
+    (StatusCode::OK, Json(ApiResponse::success(traces)))
+}
+
+/// 统计信息
+async fn get_stats(State(state): State<AppState>) -> impl IntoResponse {
+    let stats = GraphStats {
+        vertex_count: state.graph.vertex_count(),
+        edge_count: state.graph.edge_count(),
+        buffer_pool_size: state.graph.buffer_pool().pool_size(),
+        cached_pages: state.graph.buffer_pool().cached_pages(),
+    };
+
+    (StatusCode::OK, Json(ApiResponse::success(stats)))
+}
+
+/// 图统计信息
+#[derive(Debug, Serialize)]
+pub struct GraphStats {
+    pub vertex_count: usize,
+    pub edge_count: usize,
+    pub buffer_pool_size: usize,
+    pub cached_pages: usize,
+}
+
+/// API 响应
+#[derive(Debug, Serialize)]
+pub struct ApiResponse<T> {
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<T>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+impl<T: Serialize> ApiResponse<T> {
+    pub fn success(data: T) -> Self {
+        Self {
+            success: true,
+            data: Some(data),
+            error: None,
+        }
+    }
+
+    pub fn error(msg: &str) -> Self {
+        Self {
+            success: false,
+            data: None,
+            error: Some(msg.to_string()),
+        }
+    }
+}
+
+impl<T> IntoResponse for ApiResponse<T>
+where
+    T: Serialize,
+{
+    fn into_response(self) -> axum::response::Response {
+        Json(self).into_response()
+    }
+}
