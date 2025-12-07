@@ -1,6 +1,7 @@
 # ChainGraph
 
 <p align="center">
+  <img src="https://github.com/MuYiYong/ChainGraph/actions/workflows/ci.yml/badge.svg" alt="CI">
   <img src="https://img.shields.io/badge/language-Rust-orange.svg" alt="Rust">
   <img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License">
   <img src="https://img.shields.io/badge/version-0.1.0-green.svg" alt="Version">
