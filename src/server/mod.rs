@@ -4,11 +4,11 @@
 
 use crate::algorithm::{EdmondsKarp, PathFinder, TraceDirection};
 use crate::error::{Error, Result};
-use crate::graph::{Edge, EdgeId, Graph, Vertex, VertexId};
+use crate::graph::{EdgeId, Graph, VertexId};
 use crate::query::{GqlParser, QueryExecutor};
 use crate::types::Address;
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Json},
     routing::{get, post},

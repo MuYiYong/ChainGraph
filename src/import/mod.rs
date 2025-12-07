@@ -4,10 +4,9 @@
 
 use crate::error::{Error, Result};
 use crate::graph::{Graph, VertexId};
-use crate::types::{Address, EdgeLabel, PropertyValue, TokenAmount, TxHash, VertexLabel};
+use crate::types::{Address, PropertyValue, TokenAmount, TxHash, VertexLabel};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;

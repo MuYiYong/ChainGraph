@@ -6,7 +6,7 @@ use super::edge::{Edge, EdgeId};
 use super::index::{EdgeIndex, VertexIndex};
 use super::vertex::{Vertex, VertexId};
 use crate::error::{Error, Result};
-use crate::storage::{BufferPool, PageType};
+use crate::storage::BufferPool;
 use crate::types::{Address, EdgeLabel, VertexLabel};
 use parking_lot::RwLock;
 use std::collections::HashMap;

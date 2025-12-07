@@ -2345,6 +2345,7 @@ impl GqlParser {
 }
 
 /// Convenience function to parse a GQL query
+#[allow(dead_code)]
 pub fn parse(query: &str) -> Result<GqlStatement> {
     GqlParser::new(query).parse()
 }
@@ -2763,7 +2764,7 @@ mod tests {
     fn test_parse_parenthesized_label_expression() {
         // Test parenthesized label expression (ISO GQL 39075)
         // Syntax: :(Label1 | Label2) & Label3
-        let query = "MATCH (n:(Account | Contract) & Transfer) RETURN n";
+        let _query = "MATCH (n:(Account | Contract) & Transfer) RETURN n";
         // This might fail due to unknown labels, so we test a simpler case
         let query2 = "MATCH (n:Account) RETURN n";
         let stmt = parse(query2).unwrap();

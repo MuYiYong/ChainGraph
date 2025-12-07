@@ -3,9 +3,7 @@
 //! 页面是磁盘 I/O 的基本单位，大小为 4KB（SSD 友好）
 
 use crate::error::{Error, Result};
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
-use std::io::{Cursor, Read, Write};
 
 /// 页面大小：4KB (SSD 友好，对齐扇区)
 pub const PAGE_SIZE: usize = 4096;

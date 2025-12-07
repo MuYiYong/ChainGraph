@@ -69,6 +69,7 @@ impl LRUReplacer {
     }
 
     /// 可淘汰页面数量
+    #[allow(dead_code)]
     fn size(&self) -> usize {
         self.queue.len()
     }
@@ -132,7 +133,7 @@ impl BufferPool {
     }
 
     /// 创建新页面
-    pub fn new_page(&self, page_type: PageType) -> Result<PageHandle> {
+    pub fn new_page(&self, page_type: PageType) -> Result<PageHandle<'_>> {
         let frame_id = self.find_free_frame()?;
         let page = self.disk.allocate_page(page_type)?;
         let page_id = page.page_id;
@@ -154,7 +155,7 @@ impl BufferPool {
     }
 
     /// 获取页面
-    pub fn fetch_page(&self, page_id: u64) -> Result<PageHandle> {
+    pub fn fetch_page(&self, page_id: u64) -> Result<PageHandle<'_>> {
         // 检查是否已在缓冲池中
         {
             let page_table = self.page_table.lock();
@@ -268,7 +269,7 @@ impl BufferPool {
     /// 刷新所有脏页
     pub fn flush_all(&self) -> Result<()> {
         let page_table = self.page_table.lock();
-        for (&page_id, &frame_id) in page_table.iter() {
+        for (&_page_id, &frame_id) in page_table.iter() {
             let mut frame = self.frames[frame_id].write();
             if frame.is_dirty {
                 if let Some(ref page) = frame.page {

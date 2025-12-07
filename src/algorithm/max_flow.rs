@@ -278,7 +278,7 @@ impl EdmondsKarp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{EdgeLabel, TokenAmount, VertexLabel};
+    use crate::types::{TokenAmount, VertexLabel};
 
     fn create_flow_graph() -> Arc<Graph> {
         let graph = Graph::in_memory().unwrap();

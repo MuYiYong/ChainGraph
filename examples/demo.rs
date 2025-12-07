@@ -5,7 +5,6 @@
 use chaingraph::graph::Graph;
 use chaingraph::import::BatchImporter;
 use chaingraph::query::{GqlParser, QueryExecutor};
-use std::sync::Arc;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("ChainGraph 演示");

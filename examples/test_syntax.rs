@@ -191,7 +191,7 @@ fn main() {
 fn test_category(name: &str, queries: Vec<&str>) {
     println!("── {} ──", name);
     let mut passed = 0;
-    let mut failed = 0;
+    let mut _failed = 0;
 
     for query in &queries {
         match GqlParser::new(query).parse() {
@@ -201,7 +201,7 @@ fn test_category(name: &str, queries: Vec<&str>) {
             }
             Err(e) => {
                 println!("  ✗ {} -- 错误: {}", query, e);
-                failed += 1;
+                _failed += 1;
             }
         }
     }

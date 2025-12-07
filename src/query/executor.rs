@@ -61,6 +61,7 @@ pub struct QueryStats {
 type Bindings = HashMap<String, BindingValue>;
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 enum BindingValue {
     Vertex(Vertex),
     Edge(Edge),
@@ -499,7 +500,7 @@ impl QueryExecutor {
                     let paths = self.expand_variable_length(
                         &source, edge, target, quantifier, path_mode, stats,
                     )?;
-                    for (path_vertices, final_vertex, path_edges) in paths {
+                    for (path_vertices, final_vertex, _path_edges) in paths {
                         let mut new_bind = bindings.clone();
                         if let Some(ref var) = edge.variable {
                             new_bind.insert(var.clone(), BindingValue::Path(path_vertices));

@@ -7,7 +7,6 @@ use crate::graph::vertex::VertexId;
 use crate::types::{Address, EdgeLabel, VertexLabel};
 use parking_lot::RwLock;
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 
 /// 顶点索引
 pub struct VertexIndex {

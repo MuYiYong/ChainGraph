@@ -1340,6 +1340,7 @@ pub enum DescribeType {
 /// CASE expression (ISO GQL 39075)
 /// Example: CASE WHEN x > 10 THEN 'high' ELSE 'low' END
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum CaseExpression {
     /// Simple CASE
     Simple {
@@ -1356,6 +1357,7 @@ pub enum CaseExpression {
 
 /// WHEN clause in CASE expression
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct WhenClause {
     /// Condition (or value for simple CASE)
     pub condition: Expression,
@@ -1366,6 +1368,7 @@ pub struct WhenClause {
 /// EXISTS predicate (ISO GQL 39075)
 /// Example: EXISTS { MATCH (n)-[e]->(m) }
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ExistsPredicate {
     /// Pattern to check existence
     pub pattern: GraphPattern,
@@ -1375,6 +1378,7 @@ pub struct ExistsPredicate {
 
 /// Aggregate function (ISO GQL 39075)
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum AggregateFunction {
     Count(Option<Box<Expression>>, bool), // expr, distinct
     Sum(Box<Expression>, bool),
