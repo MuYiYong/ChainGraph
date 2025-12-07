@@ -6,6 +6,11 @@ on:
     tags: ['v*']
   pull_request:
     branches: [main, master]
+  schedule:
+    # 每天 UTC 时间 3:00 (北京时间 11:00) 自动构建
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    # 允许手动触发
 
 env:
   REGISTRY: ghcr.io
