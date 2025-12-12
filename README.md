@@ -1,4 +1,4 @@
-# ChainGraph（暂不可用，请勿下载，如有兴趣，多多Start）
+# ChainGraph（暂不可用，请勿下载，如有兴趣，多多Star）
 
 <p align="center">
   <img src="https://github.com/MuYiYong/ChainGraph/actions/workflows/ci.yml/badge.svg" alt="CI">
