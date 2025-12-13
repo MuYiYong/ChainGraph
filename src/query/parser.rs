@@ -1590,76 +1590,172 @@ impl GqlParser {
         if self.try_keyword("GRAPH") {
             self.skip_whitespace();
 
-            // Check if it's GRAPH TYPE
-            if self.try_keyword("TYPE") {
-                // CREATE GRAPH TYPE
-                let if_not_exists = self.try_keyword("IF") && {
-                    self.expect_keyword("NOT")?;
-                    self.expect_keyword("EXISTS")?;
-                    true
-                };
+            // CREATE GRAPH (no longer supporting CREATE GRAPH TYPE)
+            let if_not_exists = self.try_keyword("IF") && {
+                self.expect_keyword("NOT")?;
+                self.expect_keyword("EXISTS")?;
+                true
+            };
 
-                let or_replace = self.try_keyword("OR") && {
-                    self.expect_keyword("REPLACE")?;
-                    true
-                };
+            let name = self.parse_identifier()?;
 
-                let name = self.parse_identifier()?;
-
-                // Parse AS (...) - skip the definition for now
-                let elements = Vec::new();
-                if self.try_keyword("AS") {
-                    self.skip_whitespace();
-                    // Parse the type definition - skip for now
-                    if self.peek_char() == Some('(') {
-                        self.pos += 1; // skip '('
-                        let mut depth = 1;
-                        while self.pos < self.input.len() && depth > 0 {
-                            let c = self.input[self.pos..].chars().next().unwrap();
-                            if c == '(' {
-                                depth += 1;
-                            }
-                            if c == ')' {
-                                depth -= 1;
-                            }
-                            self.pos += c.len_utf8();
-                        }
-                    }
-                }
-
-                Ok(GqlStatement::CreateGraphType(CreateGraphTypeStatement {
-                    name,
-                    if_not_exists,
-                    or_replace,
-                    elements,
-                }))
+            // Parse optional inline schema: { NODE ..., EDGE ... }
+            self.skip_whitespace();
+            let schema = if self.peek_char() == Some('{') {
+                Some(self.parse_inline_schema()?)
             } else {
-                // CREATE GRAPH
-                let if_not_exists = self.try_keyword("IF") && {
-                    self.expect_keyword("NOT")?;
-                    self.expect_keyword("EXISTS")?;
-                    true
-                };
+                None
+            };
 
-                let name = self.parse_identifier()?;
-
-                // Parse graph type (CLOSED is default for Web3)
-                let graph_type = if self.try_keyword("OPEN") {
-                    GraphType::Open
-                } else {
-                    self.try_keyword("CLOSED");
-                    GraphType::Closed
-                };
-
-                Ok(GqlStatement::CreateGraph(CreateGraphStatement {
-                    name,
-                    if_not_exists,
-                    graph_type,
-                }))
-            }
+            Ok(GqlStatement::CreateGraph(CreateGraphStatement {
+                name,
+                if_not_exists,
+                schema,
+            }))
         } else {
             Err(Error::ParseError("Expected GRAPH after CREATE".to_string()))
         }
+    }
+
+    /// Parse inline graph schema: { NODE Account {id String PRIMARY KEY}, ... }
+    fn parse_inline_schema(&mut self) -> Result<GraphSchema> {
+        self.expect_char('{')?;
+        self.skip_whitespace();
+
+        let mut node_types = Vec::new();
+        let mut edge_types = Vec::new();
+
+        loop {
+            self.skip_whitespace();
+            if self.peek_char() == Some('}') {
+                break;
+            }
+
+            if self.try_keyword("NODE") {
+                self.skip_whitespace();
+                let label = self.parse_identifier()?;
+                
+                // Parse properties: { prop type [PK], ... }
+                self.skip_whitespace();
+                let properties = if self.try_char('{') {
+                    let props = self.parse_property_list()?;
+                    self.expect_char('}')?;
+                    props
+                } else {
+                    Vec::new()
+                };
+
+                node_types.push(NodeTypeSpec { label, properties });
+
+            } else if self.try_keyword("EDGE") {
+                self.skip_whitespace();
+                let label = self.parse_identifier()?;
+                
+                // Parse connection: (Source)-[{props}]->(Target)
+                self.skip_whitespace();
+                
+                // Source
+                self.expect_char('(')?;
+                let source_label = self.parse_identifier()?;
+                self.expect_char(')')?;
+                
+                // Edge + Properties
+                self.expect_char('-')?;
+                self.expect_char('[')?;
+                
+                let properties = if self.peek_char() != Some(']') {
+                    if self.try_char('{') {
+                         let props = self.parse_property_list()?;
+                         self.expect_char('}')?;
+                         props
+                    } else {
+                        // Try to parse properties directly if not wrapped in {} inside []
+                        // But based on example `-[{...}]->`, we expect {}.
+                        // If empty [], it's handled by checks.
+                        Vec::new()
+                    }
+                } else {
+                    Vec::new()
+                };
+                
+                self.expect_char(']')?;
+                self.expect_char('-')?;
+                self.expect_char('>')?;
+                
+                // Target
+                self.expect_char('(')?;
+                let target_label = self.parse_identifier()?;
+                self.expect_char(')')?;
+
+                edge_types.push(EdgeTypeSpec {
+                    label,
+                    source_label,
+                    target_label,
+                    properties,
+                });
+            } else {
+                return Err(Error::ParseError(
+                    "Expected NODE or EDGE in inline schema".to_string(),
+                ));
+            }
+
+            self.skip_whitespace();
+            if !self.try_char(',') {
+                break;
+            }
+        }
+
+        self.skip_whitespace();
+        self.expect_char('}')?;
+
+        Ok(GraphSchema {
+            node_types,
+            edge_types,
+        })
+    }
+
+    fn parse_property_list(&mut self) -> Result<Vec<PropertySpec>> {
+        let mut props = Vec::new();
+        loop {
+            self.skip_whitespace();
+            if self.peek_char() == Some('}') {
+                break;
+            }
+            props.push(self.parse_property_spec()?);
+            self.skip_whitespace();
+            if !self.try_char(',') {
+                break;
+            }
+        }
+        Ok(props)
+    }
+
+    fn parse_property_spec(&mut self) -> Result<PropertySpec> {
+        let name = self.parse_identifier()?;
+        self.skip_whitespace();
+        let data_type = self.parse_data_type()?;
+        self.skip_whitespace();
+        let is_primary_key = if self.try_keyword("PRIMARY") {
+             self.expect_keyword("KEY")?;
+             true
+        } else {
+             false
+        };
+        Ok(PropertySpec { name, data_type, is_primary_key })
+    }
+
+    fn parse_data_type(&mut self) -> Result<String> {
+        self.skip_whitespace();
+        let mut type_name = self.parse_identifier()?;
+        if type_name.to_uppercase() == "SET" {
+            self.skip_whitespace();
+            if self.try_char('<') {
+                let inner = self.parse_identifier()?;
+                self.expect_char('>')?; 
+                type_name = format!("SET<{}>", inner);
+            }
+        }
+        Ok(type_name)
     }
 
     fn parse_drop(&mut self) -> Result<GqlStatement> {
@@ -1669,34 +1765,18 @@ impl GqlParser {
         if self.try_keyword("GRAPH") {
             self.skip_whitespace();
 
-            // Check if it's GRAPH TYPE
-            if self.try_keyword("TYPE") {
-                // DROP GRAPH TYPE
-                let if_exists = self.try_keyword("IF") && {
-                    self.expect_keyword("EXISTS")?;
-                    true
-                };
+            // DROP GRAPH (no longer supporting DROP GRAPH TYPE)
+            let if_exists = self.try_keyword("IF") && {
+                self.expect_keyword("EXISTS")?;
+                true
+            };
 
-                let name = self.parse_identifier()?;
+            let name = self.parse_identifier()?;
 
-                Ok(GqlStatement::DropGraphType(DropGraphTypeStatement {
-                    name,
-                    if_exists,
-                }))
-            } else {
-                // DROP GRAPH
-                let if_exists = self.try_keyword("IF") && {
-                    self.expect_keyword("EXISTS")?;
-                    true
-                };
-
-                let name = self.parse_identifier()?;
-
-                Ok(GqlStatement::DropGraph(DropGraphStatement {
-                    name,
-                    if_exists,
-                }))
-            }
+            Ok(GqlStatement::DropGraph(DropGraphStatement {
+                name,
+                if_exists,
+            }))
         } else {
             Err(Error::ParseError("Expected GRAPH after DROP".to_string()))
         }
@@ -1707,16 +1787,13 @@ impl GqlParser {
     // ========================================================================
 
     /// Parse SHOW statement
-    /// SHOW GRAPHS | SHOW GRAPH TYPES | SHOW SCHEMAS | etc.
+    /// SHOW GRAPHS | SHOW SCHEMAS | SHOW LABELS | etc.
     fn parse_show(&mut self) -> Result<GqlStatement> {
         self.expect_keyword("SHOW")?;
         self.skip_whitespace();
 
         let show_type = if self.try_keyword("GRAPHS") {
             ShowType::Graphs
-        } else if self.try_keyword("GRAPH") {
-            self.expect_keyword("TYPES")?;
-            ShowType::GraphTypes
         } else if self.try_keyword("SCHEMAS") {
             ShowType::Schemas
         } else if self.try_keyword("FUNCTIONS") {
@@ -1756,7 +1833,7 @@ impl GqlParser {
     }
 
     /// Parse DESCRIBE/DESC statement
-    /// DESCRIBE GRAPH name | DESCRIBE GRAPH TYPE name | DESC ...
+    /// DESCRIBE GRAPH name | DESCRIBE LABEL name | DESC ...
     fn parse_describe(&mut self) -> Result<GqlStatement> {
         // Accept both DESCRIBE and DESC
         if !self.try_keyword("DESCRIBE") {
@@ -1766,13 +1843,8 @@ impl GqlParser {
 
         let (describe_type, name) = if self.try_keyword("GRAPH") {
             self.skip_whitespace();
-            if self.try_keyword("TYPE") {
-                let name = self.parse_identifier()?;
-                (DescribeType::GraphType, name)
-            } else {
-                let name = self.parse_identifier()?;
-                (DescribeType::Graph, name)
-            }
+            let name = self.parse_identifier()?;
+            (DescribeType::Graph, name)
         } else if self.try_keyword("SCHEMA") {
             let name = self.parse_identifier()?;
             (DescribeType::Schema, name)
@@ -2532,17 +2604,36 @@ mod tests {
 
     #[test]
     fn test_parse_create_graph() {
-        let query = "CREATE GRAPH myGraph CLOSED";
+        // Test simple CREATE GRAPH without schema
+        let query = "CREATE GRAPH myGraph";
         let stmt = parse(query).unwrap();
 
         match stmt {
             GqlStatement::CreateGraph(g) => {
                 assert_eq!(g.name, "myGraph");
-                assert_eq!(g.graph_type, GraphType::Closed);
+                assert!(g.schema.is_none());
             }
             _ => panic!("Expected CreateGraph statement"),
         }
+        
+        // Test CREATE GRAPH with inline schema
+    let query = "CREATE GRAPH myGraph { NODE Account, EDGE Transfer (Account)-[]->(Account) }";
+    let stmt = parse(query).unwrap();
+    
+    match stmt {
+        GqlStatement::CreateGraph(g) => {
+            assert_eq!(g.name, "myGraph");
+            let schema = g.schema.expect("Schema should be present");
+            assert_eq!(schema.node_types.len(), 1);
+            assert_eq!(schema.edge_types.len(), 1);
+            assert_eq!(schema.node_types[0].label, "Account");
+            assert_eq!(schema.edge_types[0].label, "Transfer");
+            assert_eq!(schema.edge_types[0].source_label, "Account");
+            assert_eq!(schema.edge_types[0].target_label, "Account");
+        }
+        _ => panic!("Expected CreateGraph statement"),
     }
+}
 
     #[test]
     fn test_parse_any_k_paths() {

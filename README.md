@@ -35,7 +35,7 @@ ChainGraph is a high-performance graph database designed for Web3 scenarios, foc
 - 🔗 Web3-native types: built-in `Address`, `TxHash`, `TokenAmount`, etc.
 - 🔍 Link-tracing algorithms: shortest paths, all paths, N-hop neighbors
 - 💧 Max flow analysis: Edmonds–Karp algorithm for funds analysis and AML
-- 📝 ISO GQL 39075: core graph query language features supported
+- 📝 ISO GQL 39075: core graph query language with inline schema/type support
 
 ## Quick Start
 

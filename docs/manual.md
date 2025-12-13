@@ -24,7 +24,7 @@
    - [6.14 复合查询](#614-复合查询-iso-gql-39075)
    - [6.15 SESSION 会话管理](#615-session-会话管理-iso-gql-39075)
    - [6.16 TRANSACTION 事务控制](#616-transaction-事务控制-iso-gql-39075)
-   - [6.17 CREATE/DROP GRAPH TYPE](#617-createdrop-graph-type-iso-gql-39075)
+   - [6.17 CREATE/DROP GRAPH](#617-createdrop-graph-iso-gql-39075)
    - [6.18 量化路径模式](#618-量化路径模式-iso-gql-39075)
    - [6.19 SHOW 语句](#619-show-语句---查看数据库对象)
    - [6.20 DESCRIBE 语句](#620-describe-语句---查看对象详情)
@@ -925,35 +925,75 @@ START TRANSACTION READ WRITE
 ROLLBACK
 ```
 
-### 6.17 CREATE/DROP GRAPH TYPE (ISO GQL 39075)
+### 6.17 CREATE/DROP GRAPH (ISO GQL 39075)
 
-图类型定义语句用于创建和删除图类型模式。
+图数据库管理语句用于创建和删除图。ChainGraph 支持在创建图时直接定义内联 schema，简化使用流程。
 
-#### CREATE GRAPH TYPE
+#### CREATE GRAPH
 
-```gql
--- 创建图类型
-CREATE GRAPH TYPE financial_network AS (
-  (account:Account {address STRING, balance DECIMAL}),
-  (contract:Contract {address STRING, code_hash STRING}),
-  (account)-[transfer:Transfer {amount DECIMAL}]->(account)
-)
-
--- 简单图类型
-CREATE GRAPH TYPE simple_graph AS (
-  (node:Node {id INT, name STRING})
-)
-```
-
-#### DROP GRAPH TYPE
+创建新图，可选择性地定义内联 schema。
 
 ```gql
--- 删除图类型
-DROP GRAPH TYPE financial_network
+-- 创建基本图
+CREATE GRAPH ethereum_mainnet
 
--- 强制删除（如果存在）
-DROP GRAPH TYPE IF EXISTS old_schema
+-- 条件创建（如果不存在则创建）
+CREATE GRAPH IF NOT EXISTS ethereum_mainnet
+
+-- 创建带内联 schema 的图（推荐）
+CREATE GRAPH tron {
+  NODE Account {
+    address String PRIMARY KEY,
+    type String
+  },
+  NODE Contract {
+    address String PRIMARY KEY,
+    code String
+  },
+  EDGE Transfer (Account)-[{
+    amount String,
+    block_timestamp int
+  }]->(Account),
+  EDGE Call (Account)-[{
+    method String
+  }]->(Contract)
+}
+
+-- 完整示例：区块链数据图
+CREATE GRAPH IF NOT EXISTS blockchain_analysis {
+  NODE Account { address String PRIMARY KEY },
+  NODE Transaction { hash String PRIMARY KEY },
+  EDGE Transfer (Account)-[]->(Account),
+  EDGE TxRel (Account)-[]->(Transaction)
+}
 ```
+
+**语法说明：**
+
+- `CREATE GRAPH <name>` - 创建基本图
+- `IF NOT EXISTS` - 可选条件，避免重复创建错误
+- `{ NODE ..., EDGE ... }` - 可选的内联 schema 定义
+  - `NODE <label>` - 定义节点类型
+  - `EDGE <label>` - 定义边类型
+
+系统会自动为每个图创建匿名的内部 schema，无需单独定义 Graph Type。
+
+#### DROP GRAPH
+
+删除已存在的图及其所有数据。
+
+```gql
+-- 删除图
+DROP GRAPH ethereum_mainnet
+
+-- 条件删除（如果存在则删除）
+DROP GRAPH IF EXISTS old_graph
+```
+
+**注意事项：**
+
+- DROP GRAPH 会永久删除图及其所有数据，操作不可逆
+- 建议使用 `IF EXISTS` 避免删除不存在的图时报错
 
 ### 6.18 量化路径模式 (ISO GQL 39075)
 
@@ -1025,15 +1065,6 @@ SHOW 语句用于列出数据库中的各类对象。
 SHOW GRAPHS
 
 -- 返回列: name, type, vertex_count, edge_count
-```
-
-#### SHOW GRAPH TYPES
-
-```gql
--- 查看所有图类型
-SHOW GRAPH TYPES
-
--- 返回列: name, definition
 ```
 
 #### SHOW SCHEMAS
@@ -1121,16 +1152,6 @@ DESCRIBE GRAPH myGraph
 DESC GRAPH myGraph
 
 -- 返回属性: name, type, vertex_count, edge_count, created_at
-```
-
-#### DESCRIBE GRAPH TYPE
-
-```gql
--- 查看图类型的详细信息
-DESCRIBE GRAPH TYPE myGraphType
-DESC GRAPH TYPE myType
-
--- 返回列: element, type, properties
 ```
 
 #### DESCRIBE SCHEMA

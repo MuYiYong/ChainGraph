@@ -328,13 +328,12 @@ DML 语句:
 
 DDL 语句:
   CREATE GRAPH myGraph
+  CREATE GRAPH myGraph {{ NODE Account, EDGE Transfer }}
   DROP GRAPH IF EXISTS myGraph
-  CREATE GRAPH TYPE myType AS (...)
-  DROP GRAPH TYPE IF EXISTS myType
 
 元数据查询:
   SHOW GRAPHS                  -- 列出所有图
-  SHOW GRAPH TYPES             -- 列出所有图类型
+  SHOW SCHEMAS                 -- 列出所有模式
   SHOW LABELS                  -- 列出所有顶点标签
   SHOW EDGE TYPES              -- 列出所有边类型
   SHOW PROCEDURES              -- 列出所有过程
@@ -343,7 +342,6 @@ DDL 语句:
   SHOW CONSTRAINTS             -- 列出所有约束
 
   DESCRIBE GRAPH myGraph       -- 查看图详情
-  DESC GRAPH TYPE myType       -- 查看图类型详情
   DESCRIBE LABEL Account       -- 查看顶点标签详情
   DESCRIBE EDGE TYPE Transfer  -- 查看边类型详情
 

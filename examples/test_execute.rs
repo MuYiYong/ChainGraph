@@ -84,7 +84,7 @@ fn main() {
     // SHOW 语句测试
     println!("── SHOW 语句测试 ──");
     execute_and_show(&executor, "SHOW GRAPHS");
-    execute_and_show(&executor, "SHOW GRAPH TYPES");
+    execute_and_show(&executor, "SHOW LABELS");
     execute_and_show(&executor, "SHOW LABELS");
     execute_and_show(&executor, "SHOW EDGE TYPES");
     execute_and_show(&executor, "SHOW PROCEDURES");
@@ -93,19 +93,19 @@ fn main() {
     // DESCRIBE 语句测试
     println!("── DESCRIBE 语句测试 ──");
     execute_and_show(&executor, "DESCRIBE GRAPH default");
-    execute_and_show(&executor, "DESC GRAPH TYPE default_type");
     execute_and_show(&executor, "DESCRIBE LABEL Account");
     execute_and_show(&executor, "DESCRIBE EDGE TYPE Transfer");
     println!();
 
-    // CREATE/DROP GRAPH TYPE 测试
-    println!("── GRAPH TYPE DDL 测试 ──");
-    execute_and_show(&executor, "CREATE GRAPH TYPE testType");
+    // CREATE GRAPH with inline schema 测试
+    println!("── CREATE GRAPH 内联 Schema 测试 ──");
+    execute_and_show(&executor, "CREATE GRAPH testGraph");
     execute_and_show(
         &executor,
-        "CREATE GRAPH TYPE IF NOT EXISTS testType AS (n:Node)",
+        "CREATE GRAPH IF NOT EXISTS blockchainGraph { NODE Account, NODE Contract, EDGE Transfer }",
     );
-    execute_and_show(&executor, "DROP GRAPH TYPE IF EXISTS testType");
+    execute_and_show(&executor, "DROP GRAPH IF EXISTS testGraph");
+    execute_and_show(&executor, "DROP GRAPH IF EXISTS blockchainGraph");
     println!();
 
     // MATCH 查询测试

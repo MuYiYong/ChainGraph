@@ -67,10 +67,17 @@ fn main() {
         ],
     );
 
-    // CREATE/DROP GRAPH
+    // CREATE/DROP GRAPH with inline schema
     test_category(
-        "Graph DDL",
-        vec!["CREATE GRAPH myGraph", "DROP GRAPH IF EXISTS myGraph"],
+        "Graph DDL (带内联 Schema)",
+        vec![
+            "CREATE GRAPH myGraph",
+            "CREATE GRAPH IF NOT EXISTS myGraph",
+            "CREATE GRAPH tron { NODE Account, EDGE Transfer }",
+            "CREATE GRAPH blockchain { NODE Account, NODE Contract, EDGE Transfer, EDGE Call }",
+            "DROP GRAPH myGraph",
+            "DROP GRAPH IF EXISTS myGraph",
+        ],
     );
 
     // LET 语句
@@ -145,7 +152,6 @@ fn main() {
         "SHOW 语句",
         vec![
             "SHOW GRAPHS",
-            "SHOW GRAPH TYPES",
             "SHOW SCHEMAS",
             "SHOW LABELS",
             "SHOW EDGE TYPES",
@@ -164,23 +170,9 @@ fn main() {
         vec![
             "DESCRIBE GRAPH myGraph",
             "DESC GRAPH myGraph",
-            "DESCRIBE GRAPH TYPE myGraphType",
-            "DESC GRAPH TYPE myType",
             "DESCRIBE SCHEMA public",
             "DESCRIBE LABEL Account",
             "DESCRIBE EDGE TYPE Transfer",
-        ],
-    );
-
-    // CREATE/DROP GRAPH TYPE
-    test_category(
-        "GRAPH TYPE DDL",
-        vec![
-            "CREATE GRAPH TYPE myType",
-            "CREATE GRAPH TYPE IF NOT EXISTS myType",
-            "CREATE GRAPH TYPE myType AS (node:Node)",
-            "DROP GRAPH TYPE myType",
-            "DROP GRAPH TYPE IF EXISTS myType",
         ],
     );
 

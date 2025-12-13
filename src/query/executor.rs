@@ -102,8 +102,6 @@ impl QueryExecutor {
             GqlStatement::Select(stmt) => self.execute_select(stmt),
             GqlStatement::Session(stmt) => self.execute_session(stmt),
             GqlStatement::Transaction(stmt) => self.execute_transaction(stmt),
-            GqlStatement::CreateGraphType(stmt) => self.execute_create_graph_type(stmt),
-            GqlStatement::DropGraphType(stmt) => self.execute_drop_graph_type(stmt),
         };
 
         let mut result = result?;
@@ -1512,11 +1510,94 @@ impl QueryExecutor {
     }
 
     fn execute_create_graph(&self, stmt: &CreateGraphStatement) -> Result<QueryResult> {
+        let schema_info = if let Some(ref schema) = stmt.schema {
+            // Validate schema rules
+            
+            // 1. Validate Node Types
+            for node_type in &schema.node_types {
+                // Check built-in type prefix rule
+                if node_type.label.starts_with("__") {
+                    return Err(Error::QueryError(format!(
+                        "User defined node type '{}' cannot start with '__' (reserved for built-in types)", 
+                        node_type.label
+                    )));
+                }
+
+                // Check Primary Key requirement (Difference Doc Item 3)
+                let has_pk = node_type.properties.iter().any(|p| p.is_primary_key);
+                if !has_pk {
+                    return Err(Error::QueryError(format!(
+                        "Node type '{}' must have a PRIMARY KEY", 
+                        node_type.label
+                    )));
+                }
+
+                // Check for duplicate properties
+                let mut prop_names = std::collections::HashSet::new();
+                for prop in &node_type.properties {
+                    if !prop_names.insert(&prop.name) {
+                         return Err(Error::QueryError(format!(
+                            "Duplicate property '{}' in node type '{}'", 
+                            prop.name, node_type.label
+                        )));
+                    }
+                }
+            }
+
+            // 2. Validate Edge Types
+            for edge_type in &schema.edge_types {
+                // Check built-in type prefix rule
+                if edge_type.label.starts_with("__") {
+                    return Err(Error::QueryError(format!(
+                        "User defined edge type '{}' cannot start with '__' (reserved for built-in types)", 
+                        edge_type.label
+                    )));
+                }
+
+                // Verify source and target nodes exist in the schema
+                let source_exists = schema.node_types.iter().any(|n| n.label == edge_type.source_label);
+                let target_exists = schema.node_types.iter().any(|n| n.label == edge_type.target_label);
+
+                if !source_exists {
+                    return Err(Error::QueryError(format!(
+                        "Edge type '{}' refers to undefined source node type '{}'", 
+                        edge_type.label, edge_type.source_label
+                    )));
+                }
+                if !target_exists {
+                    return Err(Error::QueryError(format!(
+                        "Edge type '{}' refers to undefined target node type '{}'", 
+                        edge_type.label, edge_type.target_label
+                    )));
+                }
+                
+                // Edge Key is optional, but if present must be unique (already checked by hashset logic generally)
+                // Check for duplicate properties
+                let mut prop_names = std::collections::HashSet::new();
+                for prop in &edge_type.properties {
+                    if !prop_names.insert(&prop.name) {
+                         return Err(Error::QueryError(format!(
+                            "Duplicate property '{}' in edge type '{}'", 
+                            prop.name, edge_type.label
+                        )));
+                    }
+                }
+            }
+
+            format!(
+                " with {} node types and {} edge types",
+                schema.node_types.len(),
+                schema.edge_types.len()
+            )
+        } else {
+            String::new()
+        };
+        
         Ok(QueryResult {
             columns: vec!["result".to_string()],
             rows: vec![vec![ResultValue::Scalar(PropertyValue::String(format!(
-                "Graph '{}' created ({:?})",
-                stmt.name, stmt.graph_type
+                "Graph '{}' created{}",
+                stmt.name, schema_info
             )))]],
             stats: QueryStats::default(),
         })
@@ -1553,21 +1634,6 @@ impl QueryExecutor {
                     ResultValue::Scalar(PropertyValue::String("Closed".to_string())),
                     ResultValue::Scalar(PropertyValue::Integer(self.graph.vertex_count() as i64)),
                     ResultValue::Scalar(PropertyValue::Integer(self.graph.edge_count() as i64)),
-                ]];
-                Ok(QueryResult {
-                    columns,
-                    rows,
-                    stats: QueryStats::default(),
-                })
-            }
-            ShowType::GraphTypes => {
-                // Return list of graph types (simulated)
-                let columns = vec!["name".to_string(), "definition".to_string()];
-                let rows = vec![vec![
-                    ResultValue::Scalar(PropertyValue::String("default_type".to_string())),
-                    ResultValue::Scalar(PropertyValue::String(
-                        "(Account)-[Transfer]->(Account)".to_string(),
-                    )),
                 ]];
                 Ok(QueryResult {
                     columns,
@@ -1863,41 +1929,6 @@ impl QueryExecutor {
                         ResultValue::Scalar(PropertyValue::String("created_at".to_string())),
                         ResultValue::Scalar(PropertyValue::String(
                             "2024-01-01T00:00:00Z".to_string(),
-                        )),
-                    ],
-                ];
-                Ok(QueryResult {
-                    columns,
-                    rows,
-                    stats: QueryStats::default(),
-                })
-            }
-            DescribeType::GraphType => {
-                let columns = vec![
-                    "element".to_string(),
-                    "type".to_string(),
-                    "properties".to_string(),
-                ];
-                let rows = vec![
-                    vec![
-                        ResultValue::Scalar(PropertyValue::String("Account".to_string())),
-                        ResultValue::Scalar(PropertyValue::String("Vertex".to_string())),
-                        ResultValue::Scalar(PropertyValue::String(
-                            "address: String, balance: Int".to_string(),
-                        )),
-                    ],
-                    vec![
-                        ResultValue::Scalar(PropertyValue::String("Contract".to_string())),
-                        ResultValue::Scalar(PropertyValue::String("Vertex".to_string())),
-                        ResultValue::Scalar(PropertyValue::String(
-                            "address: String, code_hash: String".to_string(),
-                        )),
-                    ],
-                    vec![
-                        ResultValue::Scalar(PropertyValue::String("Transfer".to_string())),
-                        ResultValue::Scalar(PropertyValue::String("Edge".to_string())),
-                        ResultValue::Scalar(PropertyValue::String(
-                            "amount: Int, block: Int".to_string(),
                         )),
                     ],
                 ];
@@ -2294,56 +2325,6 @@ impl QueryExecutor {
             TransactionStatement::Commit => "Transaction committed".to_string(),
             TransactionStatement::Rollback => "Transaction rolled back".to_string(),
         };
-
-        Ok(QueryResult {
-            columns: vec!["result".to_string()],
-            rows: vec![vec![ResultValue::Scalar(PropertyValue::String(message))]],
-            stats: QueryStats::default(),
-        })
-    }
-
-    /// Execute CREATE GRAPH TYPE statement
-    fn execute_create_graph_type(&self, stmt: &CreateGraphTypeStatement) -> Result<QueryResult> {
-        let element_count = stmt.elements.len();
-        let node_types = stmt
-            .elements
-            .iter()
-            .filter(|e| matches!(e, GraphTypeElement::NodeType(_)))
-            .count();
-        let edge_types = stmt
-            .elements
-            .iter()
-            .filter(|e| matches!(e, GraphTypeElement::EdgeType(_)))
-            .count();
-
-        let message = format!(
-            "Graph type '{}' created with {} elements ({} node types, {} edge types){}{}",
-            stmt.name,
-            element_count,
-            node_types,
-            edge_types,
-            if stmt.if_not_exists {
-                " [IF NOT EXISTS]"
-            } else {
-                ""
-            },
-            if stmt.or_replace { " [OR REPLACE]" } else { "" }
-        );
-
-        Ok(QueryResult {
-            columns: vec!["result".to_string()],
-            rows: vec![vec![ResultValue::Scalar(PropertyValue::String(message))]],
-            stats: QueryStats::default(),
-        })
-    }
-
-    /// Execute DROP GRAPH TYPE statement
-    fn execute_drop_graph_type(&self, stmt: &DropGraphTypeStatement) -> Result<QueryResult> {
-        let message = format!(
-            "Graph type '{}' dropped{}",
-            stmt.name,
-            if stmt.if_exists { " [IF EXISTS]" } else { "" }
-        );
 
         Ok(QueryResult {
             columns: vec!["result".to_string()],

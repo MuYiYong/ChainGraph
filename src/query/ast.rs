@@ -9,7 +9,7 @@
 //! - Path modes: WALK, TRAIL, SIMPLE, ACYCLIC
 //! - Path search prefixes: ALL, ANY, SHORTEST
 //! - Match modes: REPEATABLE ELEMENTS, DIFFERENT EDGES
-//! - Graph types: Closed Graph (for Web3 scenarios)
+//! - Inline graph schemas: NODE and EDGE definitions within CREATE GRAPH
 //! - Full label expressions with negation, conjunction, disjunction
 //! - Quantified path patterns
 
@@ -39,9 +39,9 @@ pub enum GqlStatement {
     CreateGraph(CreateGraphStatement),
     /// DROP GRAPH statement
     DropGraph(DropGraphStatement),
-    /// SHOW statement (SHOW GRAPHS, SHOW GRAPH TYPES, etc.)
+    /// SHOW statement (SHOW GRAPHS, SHOW LABELS, etc.)
     Show(ShowStatement),
-    /// DESCRIBE statement (DESCRIBE GRAPH, DESCRIBE GRAPH TYPE)
+    /// DESCRIBE statement (DESCRIBE GRAPH, etc.)
     Describe(DescribeStatement),
     /// LET statement (variable definition)
     Let(LetStatement),
@@ -59,10 +59,6 @@ pub enum GqlStatement {
     Session(SessionStatement),
     /// Transaction statement
     Transaction(TransactionStatement),
-    /// CREATE GRAPH TYPE statement
-    CreateGraphType(CreateGraphTypeStatement),
-    /// DROP GRAPH TYPE statement
-    DropGraphType(DropGraphTypeStatement),
 }
 
 // ============================================================================
@@ -965,31 +961,58 @@ pub struct YieldItem {
 // Graph Management Statements (ISO GQL 39075)
 // ============================================================================
 
-/// CREATE GRAPH statement
-/// For Web3, we only support CLOSED GRAPH
+/// CREATE GRAPH statement with optional inline schema
+/// Example: CREATE GRAPH myGraph { NODE Account, EDGE Transfer }
 #[derive(Debug, Clone)]
 pub struct CreateGraphStatement {
     /// Graph name
     pub name: String,
     /// IF NOT EXISTS clause
     pub if_not_exists: bool,
-    /// Graph type (closed for Web3)
-    pub graph_type: GraphType,
+    /// Optional inline graph schema
+    pub schema: Option<GraphSchema>,
 }
 
-/// Graph type
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GraphType {
-    /// Closed graph - no external references (Web3 requirement)
-    Closed,
-    /// Open graph - can reference external graphs
-    Open,
+/// Inline graph schema definition
+#[derive(Debug, Clone)]
+pub struct GraphSchema {
+    /// Node type specifications
+    pub node_types: Vec<NodeTypeSpec>,
+    /// Edge type specifications
+    pub edge_types: Vec<EdgeTypeSpec>,
 }
 
-impl Default for GraphType {
-    fn default() -> Self {
-        GraphType::Closed
-    }
+/// Property specification for schema
+#[derive(Debug, Clone)]
+pub struct PropertySpec {
+    /// Property name
+    pub name: String,
+    /// Property data type (e.g., "String", "int", "SET<enum>")
+    pub data_type: String,
+    /// Is this property a Primary Key?
+    pub is_primary_key: bool,
+}
+
+/// Node type specification in inline schema
+#[derive(Debug, Clone)]
+pub struct NodeTypeSpec {
+    /// Node label
+    pub label: String,
+    /// Properties
+    pub properties: Vec<PropertySpec>,
+}
+
+/// Edge type specification in inline schema
+#[derive(Debug, Clone)]
+pub struct EdgeTypeSpec {
+    /// Edge label
+    pub label: String,
+    /// Source node label
+    pub source_label: String,
+    /// Target node label
+    pub target_label: String,
+    /// Properties
+    pub properties: Vec<PropertySpec>,
 }
 
 /// DROP GRAPH statement
@@ -1183,88 +1206,6 @@ pub enum TransactionAccessMode {
     ReadWrite,
 }
 
-/// CREATE GRAPH TYPE statement (ISO GQL 39075)
-/// Example: CREATE GRAPH TYPE myType { ... }
-#[derive(Debug, Clone)]
-pub struct CreateGraphTypeStatement {
-    /// Graph type name
-    pub name: String,
-    /// IF NOT EXISTS clause
-    pub if_not_exists: bool,
-    /// OR REPLACE clause
-    pub or_replace: bool,
-    /// Graph type elements
-    pub elements: Vec<GraphTypeElement>,
-}
-
-/// Graph type element
-#[derive(Debug, Clone)]
-pub enum GraphTypeElement {
-    /// Node type
-    NodeType(NodeTypeDefinition),
-    /// Edge type
-    EdgeType(EdgeTypeDefinition),
-}
-
-/// Node type definition
-#[derive(Debug, Clone)]
-pub struct NodeTypeDefinition {
-    /// Label
-    pub label: String,
-    /// Properties
-    pub properties: Vec<PropertyDefinition>,
-}
-
-/// Edge type definition
-#[derive(Debug, Clone)]
-pub struct EdgeTypeDefinition {
-    /// Label
-    pub label: String,
-    /// Source node label
-    pub source_label: String,
-    /// Target node label
-    pub target_label: String,
-    /// Properties
-    pub properties: Vec<PropertyDefinition>,
-}
-
-/// Property definition in a type
-#[derive(Debug, Clone)]
-pub struct PropertyDefinition {
-    /// Property name
-    pub name: String,
-    /// Property type
-    pub property_type: PropertyType,
-    /// Nullable
-    pub nullable: bool,
-    /// Default value
-    pub default_value: Option<Expression>,
-}
-
-/// Property type
-#[derive(Debug, Clone)]
-pub enum PropertyType {
-    String,
-    Integer,
-    Float,
-    Boolean,
-    Date,
-    DateTime,
-    Duration,
-    List(Box<PropertyType>),
-    Any,
-}
-
-/// DROP GRAPH TYPE statement (ISO GQL 39075)
-/// Example: DROP GRAPH TYPE IF EXISTS myType
-#[derive(Debug, Clone)]
-pub struct DropGraphTypeStatement {
-    /// Graph type name
-    pub name: String,
-    /// IF EXISTS clause
-    pub if_exists: bool,
-}
-
 // ============================================================================
 // SHOW and DESCRIBE Statements
 // ============================================================================
@@ -1272,7 +1213,6 @@ pub struct DropGraphTypeStatement {
 /// SHOW statement - list database objects
 /// Examples:
 ///   SHOW GRAPHS
-///   SHOW GRAPH TYPES
 ///   SHOW SCHEMAS
 ///   SHOW FUNCTIONS
 ///   SHOW PROCEDURES
@@ -1289,8 +1229,6 @@ pub struct ShowStatement {
 pub enum ShowType {
     /// SHOW GRAPHS - list all graphs
     Graphs,
-    /// SHOW GRAPH TYPES - list all graph types
-    GraphTypes,
     /// SHOW SCHEMAS - list all schemas
     Schemas,
     /// SHOW FUNCTIONS - list all functions
@@ -1312,7 +1250,6 @@ pub enum ShowType {
 /// DESCRIBE statement - show details of a database object
 /// Examples:
 ///   DESCRIBE GRAPH myGraph
-///   DESCRIBE GRAPH TYPE myGraphType
 ///   DESC GRAPH myGraph
 #[derive(Debug, Clone)]
 pub struct DescribeStatement {
@@ -1327,8 +1264,6 @@ pub struct DescribeStatement {
 pub enum DescribeType {
     /// DESCRIBE GRAPH - show graph details
     Graph,
-    /// DESCRIBE GRAPH TYPE - show graph type details
-    GraphType,
     /// DESCRIBE SCHEMA - show schema details
     Schema,
     /// DESCRIBE LABEL / VERTEX TYPE - show vertex type details
