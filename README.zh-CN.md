@@ -10,12 +10,15 @@
 </p>
 
 <!-- Prominent language switch -->
-<p align="center">
-  <a href="./README.md" title="English"><img src="https://img.shields.io/badge/-English-1e90ff?style=flat-square&logo=github&logoColor=white" alt="English"></a>
-  &nbsp;&nbsp;
-  <a href="./README.zh-CN.md" title="中文"><img src="https://img.shields.io/badge/-中文-ff4d4f?style=flat-square&logo=github&logoColor=white" alt="中文"></a>
-</p>
-<!-- /language switch -->
+
+<div align="center">
+  <a href="./README.md" title="English" style="text-decoration:none;">
+    <span style="display:inline-block;padding:8px 24px;margin:4px 8px;border:2px solid #1e90ff;border-radius:8px;font-size:1.1em;font-weight:bold;background:#f8faff;color:#1e90ff;">🇬🇧 English</span>
+  </a>
+  <a href="./README.zh-CN.md" title="中文" style="text-decoration:none;">
+    <span style="display:inline-block;padding:8px 24px;margin:4px 8px;border:2px solid #ff4d4f;border-radius:8px;font-size:1.1em;font-weight:bold;background:#fff8f8;color:#ff4d4f;">🇨🇳 中文</span>
+  </a>
+</div>
 
 **ChainGraph** 是一款为 Web3 场景设计的高性能图数据库，专注于链上链路追踪与资金流分析。
 

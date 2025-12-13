@@ -1,5 +1,15 @@
 # ChainGraph
 
+
+<div align="center">
+  <a href="./README.md" title="English" style="text-decoration:none;">
+    <span style="display:inline-block;padding:8px 24px;margin:4px 8px;border:2px solid #1e90ff;border-radius:8px;font-size:1.1em;font-weight:bold;background:#f8faff;color:#1e90ff;">🇬🇧 English</span>
+  </a>
+  <a href="./README.zh-CN.md" title="中文" style="text-decoration:none;">
+    <span style="display:inline-block;padding:8px 24px;margin:4px 8px;border:2px solid #ff4d4f;border-radius:8px;font-size:1.1em;font-weight:bold;background:#fff8f8;color:#ff4d4f;">🇨🇳 中文</span>
+  </a>
+</div>
+
 <p align="center">
   <img src="https://github.com/MuYiYong/ChainGraph/actions/workflows/ci.yml/badge.svg" alt="CI">
   <img src="https://img.shields.io/badge/language-Rust-orange.svg" alt="Rust">
@@ -7,14 +17,6 @@
   <img src="https://img.shields.io/badge/version-0.1.0-green.svg" alt="Version">
   <img src="https://img.shields.io/badge/deployment-Docker-blue.svg" alt="Docker">
 </p>
-
-<!-- Prominent language switch -->
-<p align="center">
-  <a href="./README.md" title="English"><img src="https://img.shields.io/badge/-English-1e90ff?style=flat-square&logo=github&logoColor=white" alt="English"></a>
-  &nbsp;&nbsp;
-  <a href="./README.zh-CN.md" title="中文"><img src="https://img.shields.io/badge/-中文-ff4d4f?style=flat-square&logo=github&logoColor=white" alt="中文"></a>
-</p>
-<!-- /language switch -->
 
 ChainGraph is a high-performance graph database designed for Web3 scenarios, focused on on-chain link tracing and funds-flow analysis.
 
