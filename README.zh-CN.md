@@ -39,41 +39,94 @@
 - 💧 最大流分析：使用 Edmonds–Karp 算法，适用于资金流与 AML 分析
 - 📝 支持 ISO GQL 39075：实现核心图查询语言特性
 
-## 🚀 快速开始
+## 🚀 快速上手 (Quick Start)
 
-### 方式一 — Docker Compose（推荐）
+本指南将带你完成从部署到数据查询的完整流程（约 5 分钟）。
+
+### 第一步：启动服务
+
+使用 Docker Compose 快速启动 ChainGraph 服务和 CLI 工具。
 
 ```bash
-# 克隆仓库
+# 1. 下载示例配置
 git clone https://github.com/MuYiYong/ChainGraph.git
 cd ChainGraph
 
-# 启动服务
+# 2. 启动服务 (后台运行)
 docker compose up -d
 
-# 查看日志
-docker compose logs -f
-
-# 停止服务
-docker compose down
+# 3. 检查服务状态
+docker compose ps
 ```
 
-### 方式二 — 预构建镜像
+### 第二步：连接数据库
+
+使用内置的 CLI 工具连接到 ChainGraph 服务。
 
 ```bash
-# 拉取镜像
-docker pull ghcr.io/muyiyong/chaingraph:latest
-
-# 创建数据卷
-docker volume create chaingraph-data
-
-# 启动容器
-docker run -d \
-  --name chaingraph \
-  -p 8080:8080 \
-  -v chaingraph-data:/data \
-  ghcr.io/muyiyong/chaingraph:latest
+# 启动 CLI 并连接到本地服务
+docker compose run --rm chaingraph-cli
 ```
+
+成功连接后，你将看到 `GQL >` 提示符。
+
+### 第三步：创建图
+
+在 CLI 中输入以下命令，创建一个简单的金融交易图。我们使用**内联 Schema** 直接定义节点和边类型。
+
+```gql
+-- 创建名为 financial_graph 的图
+CREATE GRAPH financial_graph {
+  -- 定义 Account 节点，address 为主键
+  NODE Account {
+    address String PRIMARY KEY,
+    type String
+  },
+  -- 定义 Transfer 边，连接两个 Account
+  EDGE Transfer (Account)-[{
+    amount int,
+    timestamp int
+  }]->(Account)
+};
+
+-- 切换到刚创建的图
+USE GRAPH financial_graph;
+```
+
+### 第四步：导入数据 (写入)
+
+使用 `INSERT` 语句写入一些测试数据。
+
+```gql
+-- 1. 创建两个账户 (Alice 和 Bob)
+INSERT (alice:Account { address: "0xAlice", type: "EOA" });
+INSERT (bob:Account { address: "0xBob", type: "EOA" });
+
+-- 2. 创建一笔转账 (Alice -> Bob, 金额 100)
+INSERT (a:Account {address: "0xAlice"})-[t:Transfer {amount: 100, timestamp: 1625000000}]->(b:Account {address: "0xBob"});
+
+-- 3. 再创建一笔转账 (Bob -> Alice, 金额 50)
+INSERT (b:Account {address: "0xBob"})-[t2:Transfer {amount: 50, timestamp: 1625000100}]->(a:Account {address: "0xAlice"});
+```
+
+### 第五步：执行查询
+
+现在可以查询刚才写入的数据了。
+
+```gql
+-- 查询所有账户
+MATCH (n:Account) RETURN n;
+
+-- 查询 Alice 的转账记录 (包含方向)
+MATCH (a:Account {address: "0xAlice"})-[t:Transfer]-(partner)
+RETURN a.address, t.amount, partner.address;
+
+-- 查询资金流向路径 (1到3跳)
+MATCH path = (start:Account {address: "0xAlice"})-[:Transfer]->{1,3}(end)
+RETURN path;
+```
+
+🎉 恭喜！你已经完成了 ChainGraph 的基本操作流程。输入 `exit` 退出 CLI。
 
 ## 🖥️ CLI 使用
 

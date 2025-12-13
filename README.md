@@ -37,41 +37,94 @@ ChainGraph is a high-performance graph database designed for Web3 scenarios, foc
 - 💧 Max flow analysis: Edmonds–Karp algorithm for funds analysis and AML
 - 📝 ISO GQL 39075: core graph query language with inline schema/type support
 
-## Quick Start
+## 🚀 Quick Start
 
-### Option A — Docker Compose (recommended)
+This guide covers the complete flow from deployment to querying data (approx. 5 minutes).
+
+### Step 1: Services Deployment
+
+Use Docker Compose to quickly start ChainGraph services and the CLI tool.
 
 ```bash
-# clone repository
+# 1. Clone repository
 git clone https://github.com/MuYiYong/ChainGraph.git
 cd ChainGraph
 
-# start services
+# 2. Start services (detached mode)
 docker compose up -d
 
-# follow logs
-docker compose logs -f
-
-# stop services
-docker compose down
+# 3. Check service status
+docker compose ps
 ```
 
-### Option B — Prebuilt image
+### Step 2: Connect to Database
+
+Use the built-in CLI tool to connect to the ChainGraph service.
 
 ```bash
-# pull image
-docker pull ghcr.io/muyiyong/chaingraph:latest
-
-# create volume
-docker volume create chaingraph-data
-
-# start container
-docker run -d \
-  --name chaingraph \
-  -p 8080:8080 \
-  -v chaingraph-data:/data \
-  ghcr.io/muyiyong/chaingraph:latest
+# Start CLI and connect
+docker compose run --rm chaingraph-cli
 ```
+
+Once connected, you will see the `GQL >` prompt.
+
+### Step 3: Create Graph
+
+Enter the following command in the CLI to create a simple financial graph. We use **Inline Schema** to define node and edge types directly.
+
+```gql
+-- Create a graph named financial_graph
+CREATE GRAPH financial_graph {
+  -- Define Account node with address as PRIMARY KEY
+  NODE Account {
+    address String PRIMARY KEY,
+    type String
+  },
+  -- Define Transfer edge connecting two Accounts
+  EDGE Transfer (Account)-[{
+    amount int,
+    timestamp int
+  }]->(Account)
+};
+
+-- Switch to the new graph
+USE GRAPH financial_graph;
+```
+
+### Step 4: Import Data (Write)
+
+Use `INSERT` statements to write some test data.
+
+```gql
+-- 1. Create two accounts (Alice and Bob)
+INSERT (alice:Account { address: "0xAlice", type: "EOA" });
+INSERT (bob:Account { address: "0xBob", type: "EOA" });
+
+-- 2. Create a transfer (Alice -> Bob, amount 100)
+INSERT (a:Account {address: "0xAlice"})-[t:Transfer {amount: 100, timestamp: 1625000000}]->(b:Account {address: "0xBob"});
+
+-- 3. Create another transfer (Bob -> Alice, amount 50)
+INSERT (b:Account {address: "0xBob"})-[t2:Transfer {amount: 50, timestamp: 1625000100}]->(a:Account {address: "0xAlice"});
+```
+
+### Step 5: Execute Queries
+
+Now query the data you just wrote.
+
+```gql
+-- Find all accounts
+MATCH (n:Account) RETURN n;
+
+-- Find Alice's transfers (both directions)
+MATCH (a:Account {address: "0xAlice"})-[t:Transfer]-(partner)
+RETURN a.address, t.amount, partner.address;
+
+-- Find funds flow paths (1 to 3 hops)
+MATCH path = (start:Account {address: "0xAlice"})-[:Transfer]->{1,3}(end)
+RETURN path;
+```
+
+🎉 Congratulations! You have completed the basic operation flow of ChainGraph. Type `exit` to quit the CLI.
 
 ## 🖥️ CLI Usage
 
