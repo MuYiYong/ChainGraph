@@ -8,35 +8,35 @@
   <img src="https://img.shields.io/badge/deployment-Docker-blue.svg" alt="Docker">
 </p>
 
-**ChainGraph** 是一款专为 Web3 场景设计的高性能图数据库，专注于区块链链路追踪和资金流分析。
+ChainGraph is a high-performance graph database designed for Web3 scenarios, focused on on-chain link tracing and funds-flow analysis.
 
-> ⚠️ **仅支持容器化部署**：ChainGraph 仅通过 Docker 容器方式提供服务。
+> ⚠️ ChainGraph is provided as a Docker containerized service only.
 
-## ✨ 特性
+## Features
 
-- 🐳 **容器化部署** - 仅支持 Docker，简单易用，开箱即用
-- 🚀 **SSD 优化存储** - 4KB 页面对齐，LRU 缓冲池，支持海量数据存储
-- 🔗 **Web3 原生类型** - 内置 Address、TxHash、TokenAmount 等区块链类型
-- 🔍 **链路追踪算法** - 支持最短路径、所有路径、N跳邻居等多种追踪方式
-- 💧 **最大流分析** - Edmonds-Karp 算法，用于资金流动分析和反洗钱检测
-- 📝 **ISO GQL 39075 标准** - 完整支持 ISO/IEC 39075 标准的图查询语言
+- 🐳 Container-first: runs as Docker containers for easy deployment
+- 🚀 SSD-optimized storage: 4KB page alignment, LRU buffer pool, suitable for large datasets
+- 🔗 Web3-native types: built-in `Address`, `TxHash`, `TokenAmount`, etc.
+- 🔍 Link-tracing algorithms: shortest paths, all paths, N-hop neighbors
+- 💧 Max flow analysis: Edmonds–Karp algorithm for funds analysis and AML
+- 📝 ISO GQL 39075: core graph query language features supported
 
-## 🚀 快速开始
+## Quick Start
 
-### 方式一：Docker Compose (推荐)
+### Option A — Docker Compose (recommended)
 
 ```bash
-# 克隆仓库
+# clone repository
 git clone https://github.com/MuYiYong/ChainGraph.git
 cd ChainGraph
 
-# 启动服务
+# start services
 docker compose up -d
 
-# 查看日志
+# follow logs
 docker compose logs -f
 
-# 停止服务
+# stop services
 docker compose down
 ```
 
