@@ -43,6 +43,10 @@
 
 本指南将带你完成从部署到数据查询的完整流程（约 5 分钟）。
 
+### 一行快速试用（极简）
+
+在仓库根目录使用以下一行命令快速体验：
+
 ### 第一步：启动服务
 
 使用 Docker Compose 快速启动 ChainGraph 服务和 CLI 工具。
@@ -53,6 +57,9 @@ git clone https://github.com/MuYiYong/ChainGraph.git
 cd ChainGraph
 
 # 2. 启动服务 (后台运行)
+docker compose up -d
+
+# 启动服务
 docker compose up -d
 
 # 3. 检查服务状态
@@ -194,21 +201,32 @@ curl -X POST http://localhost:8080/algorithm/max-flow \
 -- 查找账户
 MATCH (n:Account) RETURN n LIMIT 100
 
--- 查找转账关系
-MATCH (a:Account)-[t:Transfer]->(b:Account)
-RETURN a, t, b LIMIT 50
-```
+CREATE GRAPH financial_graph {
+  -- 定义 Account 节点，address 为主键
+  NODE Account {
+    address String PRIMARY KEY,
+    name String,
+    balance Integer
+  },
 
-### 链路追踪
+  -- 定义 Contract 节点
+  NODE Contract {
+    address String PRIMARY KEY,
+    name String,
+    protocol String
+  },
 
-```gql
--- 查找两个地址之间的转账路径（ISO GQL 39075 量词语法）
-MATCH path = (a:Account)-[:Transfer]->{1,5}(b:Account)
-WHERE a.address = "0xAAA..." AND b.address = "0xBBB..."
-RETURN path
-```
+  -- 定义连接两个 Account 的 Transfer 边
+  EDGE Transfer (Account)-[{
+    amount Integer,
+    token String,
+    blockNumber Integer,
+    timestamp Integer
+  }]->(Account)
+};
 
-### 写入数据
+-- 切换到新图
+USE GRAPH financial_graph;
 
 ```gql
 -- 插入账户顶点

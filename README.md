@@ -41,6 +41,23 @@ ChainGraph is a high-performance graph database designed for Web3 scenarios, foc
 
 This guide covers the complete flow from deployment to querying data (approx. 5 minutes).
 
+### One-line Quick Try (At-a-glance)
+
+Run everything quickly with these one-liners (assumes you are in the repository root):
+
+```bash
+# Start services
+docker compose up -d
+
+# Import CSV (example) in one line
+docker run --rm -v $(pwd)/import:/import:ro -v chaingraph-data:/data ghcr.io/muyiyong/chaingraph:latest chaingraph-import -d /data -i /import/your_data.csv
+
+# Run a simple query (returns JSON)
+curl -s -X POST http://localhost:8080/query -H "Content-Type: application/json" -d '{"query":"MATCH (n:Account) RETURN n LIMIT 1"}' | jq .
+```
+
+Keep `jq` optional — the query result is JSON that you can inspect with any JSON tool.
+
 ### Step 1: Services Deployment
 
 Use Docker Compose to quickly start ChainGraph services and the CLI tool.
@@ -78,12 +95,23 @@ CREATE GRAPH financial_graph {
   -- Define Account node with address as PRIMARY KEY
   NODE Account {
     address String PRIMARY KEY,
-    type String
+    name String,
+    balance Integer
   },
+
+  -- Define Contract node
+  NODE Contract {
+    address String PRIMARY KEY,
+    name String,
+    protocol String
+  },
+
   -- Define Transfer edge connecting two Accounts
   EDGE Transfer (Account)-[{
-    amount int,
-    timestamp int
+    amount Integer,
+    token String,
+    blockNumber Integer,
+    timestamp Integer
   }]->(Account)
 };
 
