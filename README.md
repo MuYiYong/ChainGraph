@@ -1,4 +1,4 @@
-# ChainGraph（开发中，请勿下载，如有兴趣，多多Star）
+# ChainGraph
 
 <p align="center">
   <img src="https://github.com/MuYiYong/ChainGraph/actions/workflows/ci.yml/badge.svg" alt="CI">
@@ -11,6 +11,12 @@
 ChainGraph is a high-performance graph database designed for Web3 scenarios, focused on on-chain link tracing and funds-flow analysis.
 
 > ⚠️ ChainGraph is provided as a Docker containerized service only.
+
+---
+
+**Language / 语言**:  
+- English (default): this `README.md` — click to view English content.  
+- 中文: see `README.zh-CN.md` — click to view Chinese content.
 
 ## Features
 
@@ -40,16 +46,16 @@ docker compose logs -f
 docker compose down
 ```
 
-### 方式二：预构建镜像
+### Option B — Prebuilt image
 
 ```bash
-# 拉取镜像
+# pull image
 docker pull ghcr.io/muyiyong/chaingraph:latest
 
-# 创建数据卷
+# create volume
 docker volume create chaingraph-data
 
-# 启动服务
+# start container
 docker run -d \
   --name chaingraph \
   -p 8080:8080 \
@@ -57,30 +63,30 @@ docker run -d \
   ghcr.io/muyiyong/chaingraph:latest
 ```
 
-## 🖥️ 使用 CLI
+## 🖥️ CLI Usage
 
 ```bash
-# Docker Compose 方式
+# Docker Compose
 docker compose run --rm chaingraph-cli
 
-# 直接 Docker 方式
+# Direct Docker
 docker run -it --rm \
   -v chaingraph-data:/data \
   ghcr.io/muyiyong/chaingraph:latest \
   chaingraph-cli -d /data
 ```
 
-## 📥 导入数据
+## 📥 Import Data
 
 ```bash
-# 将数据文件放入 import 目录
+# place your data file into the import directory
 mkdir -p import
 cp your_data.csv import/
 
-# 使用 Docker Compose
+# using Docker Compose
 docker compose --profile import run --rm chaingraph-import
 
-# 或直接使用 Docker
+# or using Docker directly
 docker run --rm \
   -v chaingraph-data:/data \
   -v $(pwd)/import:/import:ro \
@@ -90,106 +96,106 @@ docker run --rm \
 
 ## 🔌 REST API
 
-服务启动后通过 http://localhost:8080 访问：
+After the service starts, access the API at `http://localhost:8080`:
 
 ```bash
-# 健康检查
+# health check
 curl http://localhost:8080/health
 
-# 执行 GQL 查询
+# execute a GQL query
 curl -X POST http://localhost:8080/query \
   -H "Content-Type: application/json" \
   -d '{"query": "MATCH (n:Account) RETURN n LIMIT 10"}'
 
-# 获取统计信息
+# get statistics
 curl http://localhost:8080/stats
 
-# 最短路径
+# shortest path
 curl -X POST http://localhost:8080/algorithm/shortest-path \
   -H "Content-Type: application/json" \
   -d '{"source": 1, "target": 100}'
 
-# 最大流分析
+# max flow
 curl -X POST http://localhost:8080/algorithm/max-flow \
   -H "Content-Type: application/json" \
   -d '{"source": 1, "sink": 100}'
 ```
 
-## 📖 GQL 查询示例
+## 📖 GQL Query Examples
 
-### 基本查询
+### Basic queries
 
 ```gql
--- 查找所有账户
+-- find accounts
 MATCH (n:Account) RETURN n LIMIT 100
 
--- 查找转账关系
-MATCH (a:Account)-[t:Transfer]->(b:Account) 
+-- find transfers
+MATCH (a:Account)-[t:Transfer]->(b:Account)
 RETURN a, t, b LIMIT 50
 ```
 
-### 链路追踪
+### Link tracing
 
 ```gql
--- 查找两个地址之间的转账路径 (ISO GQL 39075 量词语法)
+-- find transfer paths between two addresses (ISO GQL 39075 quantified path syntax)
 MATCH path = (a:Account)-[:Transfer]->{1,5}(b:Account)
 WHERE a.address = "0xAAA..." AND b.address = "0xBBB..."
 RETURN path
 ```
 
-### 数据写入
+### Writing data
 
 ```gql
--- 插入账户顶点
+-- insert an account vertex
 INSERT (alice:Account {address: "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0"})
 
--- 插入转账边
+-- insert a transfer edge
 INSERT (a)-[:Transfer {amount: 1000}]->(b)
 ```
 
-### 过程调用
+### Procedures / Calls
 
 ```gql
--- 最短路径
+-- shortest path
 CALL shortest_path(1, 5)
 
--- 链路追踪
+-- trace
 CALL trace(1, 'forward', 5)
 
--- 最大流分析
+-- max flow
 CALL max_flow(1, 100)
 ```
 
-### 元数据查询
+### Metadata queries
 
 ```gql
--- 查看所有图
+-- show graphs
 SHOW GRAPHS
 
--- 查看所有标签
+-- show labels
 SHOW LABELS
 
--- 查看图详情
+-- describe graph
 DESCRIBE GRAPH myGraph
 ```
 
-更多 GQL 语法详见 [用户手册](docs/manual.md)
+See the user manual for full GQL syntax: [docs/manual.md](docs/manual.md)
 
-## 💾 数据持久化
+## 💾 Data persistence
 
-数据存储在 Docker Volume 中：
+Data is stored in a Docker volume:
 
 ```bash
-# 查看数据卷
+# inspect volume
 docker volume inspect chaingraph-data
 
-# 备份数据
+# backup data
 docker run --rm \
   -v chaingraph-data:/data:ro \
   -v $(pwd)/backup:/backup \
   alpine tar czf /backup/chaingraph-backup.tar.gz -C /data .
 
-# 恢复数据
+# restore data
 docker run --rm \
   -v chaingraph-data:/data \
   -v $(pwd)/backup:/backup:ro \
@@ -229,41 +235,41 @@ docker run --rm \
                    └──────────────┘
 ```
 
-## 📊 数据模型
+## 📊 Data model
 
-### 顶点类型
+### Vertex labels
 
-| 类型 | 描述 | 典型属性 |
+| Label | Description | Typical properties |
 |------|------|----------|
-| `Account` | EOA 账户 | address, balance |
-| `Contract` | 智能合约 | address, code_hash |
-| `Token` | 代币 | address, symbol |
+| `Account` | EOA account | address, balance |
+| `Contract` | Smart contract | address, code_hash |
+| `Token` | Token contract | address, symbol |
 
-### 边类型
+### Edge labels
 
-| 类型 | 描述 | 典型属性 |
+| Label | Description | Typical properties |
 |------|------|----------|
-| `Transfer` | 代币转账 | amount, token |
-| `Call` | 合约调用 | method, gas |
+| `Transfer` | Token transfer | amount, token |
+| `Call` | Contract call | method, gas |
 
-## ⚙️ 环境变量
+## ⚙️ Environment variables
 
-| 变量 | 默认值 | 说明 |
+| Variable | Default | Description |
 |------|--------|------|
-| `RUST_LOG` | `info` | 日志级别 (debug, info, warn, error) |
+| `RUST_LOG` | `info` | logging level (debug, info, warn, error) |
 
-## 📚 文档
+## 📚 Documentation
 
-- [Docker 使用指南](DOCKER.md)
-- [用户手册](docs/manual.md)
+- [Docker guide](DOCKER.md)
+- [User manual](docs/manual.md)
 
-## 📄 许可证
+## 📄 License
 
-本项目采用 Apache-2.0 许可证。详见 [LICENSE](LICENSE) 文件。
+This project is licensed under Apache-2.0. See [LICENSE](LICENSE) for details.
 
-## 🤝 贡献
+## 🤝 Contributing
 
-欢迎贡献代码！请先阅读 [贡献指南](CONTRIBUTING.md)。
+Contributions are welcome — please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 
 ---
 
