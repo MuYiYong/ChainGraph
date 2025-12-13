@@ -8,6 +8,14 @@
   <img src="https://img.shields.io/badge/deployment-Docker-blue.svg" alt="Docker">
 </p>
 
+<!-- Prominent language switch -->
+<p align="center">
+  <a href="./README.md" title="English"><img src="https://img.shields.io/badge/-English-1e90ff?style=flat-square&logo=github&logoColor=white" alt="English"></a>
+  &nbsp;&nbsp;
+  <a href="./README.zh-CN.md" title="中文"><img src="https://img.shields.io/badge/-中文-ff4d4f?style=flat-square&logo=github&logoColor=white" alt="中文"></a>
+</p>
+<!-- /language switch -->
+
 ChainGraph is a high-performance graph database designed for Web3 scenarios, focused on on-chain link tracing and funds-flow analysis.
 
 > ⚠️ ChainGraph is provided as a Docker containerized service only.
