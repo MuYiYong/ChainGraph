@@ -11,12 +11,12 @@
 
 <!-- Prominent language switch -->
 
-<div align="center">
+<div align="center" style="margin-bottom: 8px;">
   <a href="./README.md" title="English" style="text-decoration:none;">
-    <span style="display:inline-block;padding:8px 24px;margin:4px 8px;border:2px solid #1e90ff;border-radius:8px;font-size:1.1em;font-weight:bold;background:#f8faff;color:#1e90ff;">🇬🇧 English</span>
+    <span style="display:inline-block;padding:8px 28px;margin:4px 8px;border:2px solid #1e90ff;border-radius:6px;font-size:1.08em;font-weight:600;background:#f8faff;color:#1e90ff;">English</span>
   </a>
   <a href="./README.zh-CN.md" title="中文" style="text-decoration:none;">
-    <span style="display:inline-block;padding:8px 24px;margin:4px 8px;border:2px solid #ff4d4f;border-radius:8px;font-size:1.1em;font-weight:bold;background:#fff8f8;color:#ff4d4f;">🇨🇳 中文</span>
+    <span style="display:inline-block;padding:8px 28px;margin:4px 8px;border:2px solid #ff4d4f;border-radius:6px;font-size:1.08em;font-weight:600;background:#fff8f8;color:#ff4d4f;">中文</span>
   </a>
 </div>
 
