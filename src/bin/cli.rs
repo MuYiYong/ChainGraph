@@ -124,10 +124,14 @@ fn run_interactive(
 
                 // 处理控制台命令
                 if is_console_command(line) {
-                    match execute_console_command(line, console_state) {
+                    match execute_console_command(line, console_state, graph) {
                         CommandResult::Continue => {}
                         CommandResult::Exit => {
-                            println!("{}", "再见！".cyan());
+                            // 退出前保存数据
+                            if let Err(e) = graph.flush() {
+                                println!("{}: {}", "警告: 保存数据失败".yellow(), e);
+                            }
+                            println!("{}", "数据已保存，再见！".cyan());
                             break;
                         }
                         CommandResult::Message(msg) => {
@@ -143,7 +147,11 @@ fn run_interactive(
                 // 处理普通命令
                 match handle_command(graph, line, &mut printer, console_state) {
                     Ok(true) => {
-                        println!("{}", "再见！".cyan());
+                        // 退出前保存数据
+                        if let Err(e) = graph.flush() {
+                            println!("{}: {}", "警告: 保存数据失败".yellow(), e);
+                        }
+                        println!("{}", "数据已保存，再见！".cyan());
                         break;
                     }
                     Ok(false) => {}
@@ -157,7 +165,11 @@ fn run_interactive(
                 continue;
             }
             Err(ReadlineError::Eof) => {
-                println!("{}", "再见！".cyan());
+                // 退出前保存数据
+                if let Err(e) = graph.flush() {
+                    println!("{}: {}", "警告: 保存数据失败".yellow(), e);
+                }
+                println!("{}", "数据已保存，再见！".cyan());
                 break;
             }
             Err(err) => {

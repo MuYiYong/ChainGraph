@@ -2438,14 +2438,11 @@ impl QueryExecutor {
 mod tests {
     use super::*;
     use crate::query::parser::parse;
-    use crate::types::Address;
 
     fn setup_test_graph() -> Arc<Graph> {
         let graph = Graph::in_memory().unwrap();
-        let addr1 = Address::from_hex("0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0").unwrap();
-        let addr2 = Address::from_hex("0x8ba1f109551bD432803012645Ac136ddd64DBA72").unwrap();
-        let v1 = graph.add_account(addr1).unwrap();
-        let v2 = graph.add_account(addr2).unwrap();
+        let v1 = graph.add_account("0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0".to_string()).unwrap();
+        let v2 = graph.add_account("0x8ba1f109551bD432803012645Ac136ddd64DBA72".to_string()).unwrap();
         graph
             .add_transfer(v1, v2, TokenAmount::from_u64(1000), 12345678)
             .unwrap();

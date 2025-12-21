@@ -294,7 +294,7 @@ mod tests {
     #[test]
     fn test_vertex_index() {
         let index = VertexIndex::new();
-        let addr = Address::from_hex("0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0").unwrap();
+        let addr = "0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0".to_string();
         let vid = VertexId::new(1);
 
         index.add_address(addr.clone(), vid);

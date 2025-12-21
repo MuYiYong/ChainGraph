@@ -6,8 +6,11 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
+
+use crate::graph::Graph;
 
 /// 控制台命令执行结果
 pub enum CommandResult {
@@ -78,7 +81,7 @@ impl ConsoleState {
 }
 
 /// 解析并执行控制台命令
-pub fn execute_console_command(input: &str, state: &mut ConsoleState) -> CommandResult {
+pub fn execute_console_command(input: &str, state: &mut ConsoleState, graph: &Arc<Graph>) -> CommandResult {
     let input = input.trim();
     
     // 移除开头的冒号
@@ -181,6 +184,13 @@ pub fn execute_console_command(input: &str, state: &mut ConsoleState) -> Command
             CommandResult::Continue
         }
 
+        "flush" | "save" => {
+            match graph.flush() {
+                Ok(_) => CommandResult::Message("数据已保存到磁盘".to_string()),
+                Err(e) => CommandResult::Error(format!("保存失败: {}", e)),
+            }
+        }
+
         _ => CommandResult::Error(format!("Unknown command: {}. Type :help for help.", cmd)),
     }
 }
@@ -203,6 +213,7 @@ fn get_help_text() -> String {
 ║ :pager <cmd> <limit>       Set pager (e.g., :pager less 100)  ║
 ║ :nopager                   Disable pager                      ║
 ║ :timeout <seconds>         Set query timeout (0 to disable)   ║
+║ :flush, :save              Flush data to disk                  ║
 ║ :clear                     Clear the screen                   ║
 ╠═══════════════════════════════════════════════════════════════╣
 ║ Tip: Use \G at end of query for vertical result display       ║
