@@ -6,7 +6,6 @@ use crate::algorithm::{EdmondsKarp, PathFinder, TraceDirection};
 use crate::error::{Error, Result};
 use crate::graph::{EdgeId, Graph, VertexId};
 use crate::query::{GqlParser, QueryExecutor};
-use crate::types::Address;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -138,18 +137,12 @@ async fn get_vertex_by_address(
     State(state): State<AppState>,
     Path(address): Path<String>,
 ) -> axum::response::Response {
-    match Address::from_hex(&address) {
-        Ok(addr) => match state.graph.get_vertex_by_address(&addr) {
-            Some(vertex) => (StatusCode::OK, Json(ApiResponse::success(vertex))).into_response(),
-            None => (
-                StatusCode::NOT_FOUND,
-                Json(ApiResponse::<()>::error("顶点不存在")),
-            )
-                .into_response(),
-        },
-        Err(_) => (
-            StatusCode::BAD_REQUEST,
-            Json(ApiResponse::<()>::error("无效地址格式")),
+    // 地址作为普通字符串处理
+    match state.graph.get_vertex_by_address(&address) {
+        Some(vertex) => (StatusCode::OK, Json(ApiResponse::success(vertex))).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ApiResponse::<()>::error("顶点不存在")),
         )
             .into_response(),
     }

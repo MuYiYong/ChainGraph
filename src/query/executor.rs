@@ -5,7 +5,7 @@
 use super::ast::*;
 use crate::error::{Error, Result};
 use crate::graph::{Edge, Graph, Vertex, VertexId};
-use crate::types::{Address, EdgeLabel, PropertyValue, TokenAmount, VertexLabel};
+use crate::types::{EdgeLabel, PropertyValue, TokenAmount, VertexLabel};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -185,14 +185,16 @@ impl QueryExecutor {
             return self.match_path_with_search(path, initial, search, stats);
         }
 
-        let mut current = vec![initial];
+        // Track path vertices for path variable binding
+        // Each binding now carries a list of vertex IDs traversed
+        let mut current: Vec<(Bindings, Vec<VertexId>)> = vec![(initial, Vec::new())];
         let mut i = 0;
 
         while i < path.elements.len() {
             match &path.elements[i] {
                 PathElement::Node(node_pattern) => {
                     let mut new_bindings = Vec::new();
-                    for bindings in current {
+                    for (bindings, path_vertices) in current {
                         let candidates =
                             self.get_candidate_vertices(node_pattern, &bindings, stats);
                         for vertex in candidates {
@@ -202,7 +204,10 @@ impl QueryExecutor {
                                     new_bind
                                         .insert(var.clone(), BindingValue::Vertex(vertex.clone()));
                                 }
-                                new_bindings.push(new_bind);
+                                // Add vertex to path
+                                let mut new_path = path_vertices.clone();
+                                new_path.push(vertex.id());
+                                new_bindings.push((new_bind, new_path));
                             }
                         }
                     }
@@ -226,7 +231,7 @@ impl QueryExecutor {
                         }
                     };
 
-                    current = self.match_edge_pattern(
+                    current = self.match_edge_pattern_with_path(
                         &current,
                         edge_pattern,
                         target_node,
@@ -237,7 +242,6 @@ impl QueryExecutor {
                 }
                 PathElement::ParenthesizedPath(paren_path) => {
                     // Handle parenthesized path patterns (ISO GQL 39075)
-                    // For now, expand the inner path pattern elements
                     match &paren_path.path_pattern {
                         PathPatternExpression::Term(inner_elements) => {
                             // Create a temporary path pattern with the inner elements
@@ -251,16 +255,18 @@ impl QueryExecutor {
                             
                             // Match the inner path for each current binding
                             let mut new_bindings = Vec::new();
-                            for bindings in current {
+                            for (bindings, path_vertices) in current {
                                 let inner_results = self.match_path_pattern(&inner_path, bindings, stats)?;
-                                new_bindings.extend(inner_results);
+                                for inner_bind in inner_results {
+                                    new_bindings.push((inner_bind, path_vertices.clone()));
+                                }
                             }
                             current = new_bindings;
                         }
                         PathPatternExpression::Union(alternatives) => {
                             // Pattern union: match any of the alternatives
                             let mut all_results = Vec::new();
-                            for bindings in &current {
+                            for (bindings, path_vertices) in &current {
                                 for alt_elements in alternatives {
                                     let alt_path = PathPattern {
                                         variable: paren_path.subpath_variable.clone(),
@@ -270,7 +276,9 @@ impl QueryExecutor {
                                         quantifier: paren_path.quantifier.clone(),
                                     };
                                     let alt_results = self.match_path_pattern(&alt_path, bindings.clone(), stats)?;
-                                    all_results.extend(alt_results);
+                                    for alt_bind in alt_results {
+                                        all_results.push((alt_bind, path_vertices.clone()));
+                                    }
                                 }
                             }
                             current = all_results;
@@ -278,7 +286,7 @@ impl QueryExecutor {
                         PathPatternExpression::MultisetAlternation(alternatives) => {
                             // Multiset alternation: return all matches from all alternatives
                             let mut all_results = Vec::new();
-                            for bindings in &current {
+                            for (bindings, path_vertices) in &current {
                                 for alt_elements in alternatives {
                                     let alt_path = PathPattern {
                                         variable: paren_path.subpath_variable.clone(),
@@ -288,7 +296,9 @@ impl QueryExecutor {
                                         quantifier: paren_path.quantifier.clone(),
                                     };
                                     let alt_results = self.match_path_pattern(&alt_path, bindings.clone(), stats)?;
-                                    all_results.extend(alt_results);
+                                    for alt_bind in alt_results {
+                                        all_results.push((alt_bind, path_vertices.clone()));
+                                    }
                                 }
                             }
                             current = all_results;
@@ -299,7 +309,86 @@ impl QueryExecutor {
             i += 1;
         }
 
-        Ok(current)
+        // Store path variable if specified
+        let result: Vec<Bindings> = current
+            .into_iter()
+            .map(|(mut bindings, path_vertices)| {
+                if let Some(ref var) = path.variable {
+                    bindings.insert(var.clone(), BindingValue::Path(path_vertices));
+                }
+                bindings
+            })
+            .collect();
+
+        Ok(result)
+    }
+
+    /// Match edge pattern with path tracking
+    fn match_edge_pattern_with_path(
+        &self,
+        current: &[(Bindings, Vec<VertexId>)],
+        edge: &EdgePattern,
+        target: &NodePattern,
+        path_mode: Option<PathMode>,
+        stats: &mut QueryStats,
+    ) -> Result<Vec<(Bindings, Vec<VertexId>)>> {
+        let mut new_bindings = Vec::new();
+
+        for (bindings, path_vertices) in current {
+            let source_vertices: Vec<Vertex> = self.get_bound_vertices(bindings);
+
+            for source in source_vertices {
+                // Handle variable-length patterns
+                if let Some(ref quantifier) = edge.quantifier {
+                    let paths = self.expand_variable_length(
+                        &source, edge, target, quantifier, path_mode, stats,
+                    )?;
+                    for (var_path_vertices, final_vertex, _path_edges) in paths {
+                        let mut new_bind = bindings.clone();
+                        if let Some(ref var) = edge.variable {
+                            new_bind.insert(var.clone(), BindingValue::Path(var_path_vertices.clone()));
+                        }
+                        if let Some(ref var) = target.variable {
+                            new_bind.insert(var.clone(), BindingValue::Vertex(final_vertex.clone()));
+                        }
+                        // Extend path with the traversed vertices
+                        let mut new_path = path_vertices.clone();
+                        new_path.extend(var_path_vertices.into_iter().skip(1)); // Skip first as it's already in path
+                        new_bindings.push((new_bind, new_path));
+                    }
+                } else {
+                    // Single edge match
+                    let edges = self.get_edges_by_direction(&source, edge.direction);
+                    stats.edges_scanned += edges.len();
+
+                    for e in edges {
+                        if !self.match_edge_labels(edge, &e) {
+                            continue;
+                        }
+
+                        let target_id = self.get_edge_target(&e, &source, edge.direction);
+                        if let Some(target_vertex) = self.graph.get_vertex(target_id) {
+                            if self.match_node_pattern(target, &target_vertex) {
+                                let mut new_bind = bindings.clone();
+                                if let Some(ref var) = edge.variable {
+                                    new_bind.insert(var.clone(), BindingValue::Edge(e.clone()));
+                                }
+                                if let Some(ref var) = target.variable {
+                                    new_bind
+                                        .insert(var.clone(), BindingValue::Vertex(target_vertex.clone()));
+                                }
+                                // Add target vertex to path
+                                let mut new_path = path_vertices.clone();
+                                new_path.push(target_id);
+                                new_bindings.push((new_bind, new_path));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(new_bindings)
     }
 
     fn match_path_with_search(
@@ -479,66 +568,8 @@ impl QueryExecutor {
         Ok(results)
     }
 
-    fn match_edge_pattern(
-        &self,
-        current: &[Bindings],
-        edge: &EdgePattern,
-        target: &NodePattern,
-        path_mode: Option<PathMode>,
-        stats: &mut QueryStats,
-    ) -> Result<Vec<Bindings>> {
-        let mut new_bindings = Vec::new();
 
-        for bindings in current {
-            let source_vertices: Vec<Vertex> = self.get_bound_vertices(bindings);
 
-            for source in source_vertices {
-                // Handle variable-length patterns
-                if let Some(ref quantifier) = edge.quantifier {
-                    let paths = self.expand_variable_length(
-                        &source, edge, target, quantifier, path_mode, stats,
-                    )?;
-                    for (path_vertices, final_vertex, _path_edges) in paths {
-                        let mut new_bind = bindings.clone();
-                        if let Some(ref var) = edge.variable {
-                            new_bind.insert(var.clone(), BindingValue::Path(path_vertices));
-                        }
-                        if let Some(ref var) = target.variable {
-                            new_bind.insert(var.clone(), BindingValue::Vertex(final_vertex));
-                        }
-                        new_bindings.push(new_bind);
-                    }
-                } else {
-                    // Single edge match
-                    let edges = self.get_edges_by_direction(&source, edge.direction);
-                    stats.edges_scanned += edges.len();
-
-                    for e in edges {
-                        if !self.match_edge_labels(edge, &e) {
-                            continue;
-                        }
-
-                        let target_id = self.get_edge_target(&e, &source, edge.direction);
-                        if let Some(target_vertex) = self.graph.get_vertex(target_id) {
-                            if self.match_node_pattern(target, &target_vertex) {
-                                let mut new_bind = bindings.clone();
-                                if let Some(ref var) = edge.variable {
-                                    new_bind.insert(var.clone(), BindingValue::Edge(e.clone()));
-                                }
-                                if let Some(ref var) = target.variable {
-                                    new_bind
-                                        .insert(var.clone(), BindingValue::Vertex(target_vertex));
-                                }
-                                new_bindings.push(new_bind);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(new_bindings)
-    }
 
     fn expand_variable_length(
         &self,
@@ -1059,19 +1090,38 @@ impl QueryExecutor {
             let labels = node.labels();
             let vertex_id = if !labels.is_empty() {
                 let label = labels[0].clone();
-                let address_prop = node
-                    .properties
-                    .iter()
-                    .find(|(k, _)| k == "address")
-                    .and_then(|(_, v)| {
-                        if let PropertyValue::Address(addr) = v {
-                            Some(addr.clone())
-                        } else if let PropertyValue::String(s) = v {
-                            Address::from_hex(s).ok()
-                        } else {
-                            None
+                // 按当前图的 schema 决定是否把 address 字段当作 Address 类型来处理。
+                // 按 schema 决定 address 是否为 string（默认）
+                let mut address_prop: Option<String> = None;
+                if let Some(stored) = self.graph.get_schema() {
+                    let label_name = label.as_str();
+                    if let Some(prop_specs) = stored.node_types.get(label_name) {
+                        if let Some(addr_spec) = prop_specs.iter().find(|p| p.name == "address") {
+                            if addr_spec.data_type.to_lowercase().contains("string") {
+                                if let Some((_, v)) = node.properties.iter().find(|(k, _)| k == "address") {
+                                    if let PropertyValue::String(s) = v {
+                                        address_prop = Some(s.clone());
+                                    }
+                                }
+                            } else {
+                                // 如果 schema 指定为非-string（比如之前的 Address），
+                                // 我们也退回到字符串处理，不做隐式解析。
+                                if let Some((_, v)) = node.properties.iter().find(|(k, _)| k == "address") {
+                                    if let PropertyValue::String(s) = v {
+                                        address_prop = Some(s.clone());
+                                    }
+                                }
+                            }
                         }
-                    });
+                    }
+                } else {
+                    // 无 schema 情况，按字符串处理
+                    if let Some((_, v)) = node.properties.iter().find(|(k, _)| k == "address") {
+                        if let PropertyValue::String(s) = v {
+                            address_prop = Some(s.clone());
+                        }
+                    }
+                }
 
                 let id = if let Some(addr) = address_prop {
                     match label {
@@ -1592,6 +1642,36 @@ impl QueryExecutor {
         } else {
             String::new()
         };
+        // 如果提供了 inline schema，把它转换并保存到图的运行时状态中
+        if let Some(ref schema) = stmt.schema {
+            let mut stored = crate::graph::StoredGraphSchema::default();
+            for node in &schema.node_types {
+                let props = node
+                    .properties
+                    .iter()
+                    .map(|p| crate::graph::StoredPropertySpec {
+                        name: p.name.clone(),
+                        data_type: p.data_type.clone(),
+                        is_primary_key: p.is_primary_key,
+                    })
+                    .collect();
+                stored.node_types.insert(node.label.clone(), props);
+            }
+            for edge in &schema.edge_types {
+                let props = edge
+                    .properties
+                    .iter()
+                    .map(|p| crate::graph::StoredPropertySpec {
+                        name: p.name.clone(),
+                        data_type: p.data_type.clone(),
+                        is_primary_key: p.is_primary_key,
+                    })
+                    .collect();
+                stored.edge_types.insert(edge.label.clone(), props);
+            }
+
+            self.graph.set_schema(stored);
+        }
         
         Ok(QueryResult {
             columns: vec!["result".to_string()],

@@ -2,7 +2,7 @@
 //!
 //! Web3 场景的顶点类型：账户、合约、代币、交易、区块
 
-use crate::types::{Address, PropertyValue, TxHash, VertexLabel};
+use crate::types::{PropertyValue, TxHash, VertexLabel};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -54,26 +54,26 @@ impl Vertex {
     }
 
     /// 创建账户顶点
-    pub fn new_account(id: VertexId, address: Address) -> Self {
+    pub fn new_account(id: VertexId, address: String) -> Self {
         let mut v = Self::new(id, VertexLabel::Account);
         v.properties
-            .insert("address".to_string(), PropertyValue::Address(address));
+            .insert("address".to_string(), PropertyValue::String(address));
         v
     }
 
     /// 创建合约顶点
-    pub fn new_contract(id: VertexId, address: Address) -> Self {
+    pub fn new_contract(id: VertexId, address: String) -> Self {
         let mut v = Self::new(id, VertexLabel::Contract);
         v.properties
-            .insert("address".to_string(), PropertyValue::Address(address));
+            .insert("address".to_string(), PropertyValue::String(address));
         v
     }
 
     /// 创建代币顶点
-    pub fn new_token(id: VertexId, address: Address, symbol: String) -> Self {
+    pub fn new_token(id: VertexId, address: String, symbol: String) -> Self {
         let mut v = Self::new(id, VertexLabel::Token);
         v.properties
-            .insert("address".to_string(), PropertyValue::Address(address));
+            .insert("address".to_string(), PropertyValue::String(address));
         v.properties
             .insert("symbol".to_string(), PropertyValue::String(symbol));
         v
@@ -134,9 +134,9 @@ impl Vertex {
     }
 
     /// 获取地址（如果是账户/合约/代币类型）
-    pub fn address(&self) -> Option<&Address> {
-        if let Some(PropertyValue::Address(addr)) = self.properties.get("address") {
-            Some(addr)
+    pub fn address(&self) -> Option<&str> {
+        if let Some(PropertyValue::String(s)) = self.properties.get("address") {
+            Some(s.as_str())
         } else {
             None
         }

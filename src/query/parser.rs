@@ -4,7 +4,7 @@
 
 use crate::error::{Error, Result};
 use crate::query::ast::*;
-use crate::types::{Address, EdgeLabel, PropertyValue, VertexLabel};
+use crate::types::{EdgeLabel, PropertyValue, VertexLabel};
 
 /// GQL Parser
 pub struct GqlParser {
@@ -835,19 +835,9 @@ impl GqlParser {
 
         if self.peek_char_is('"') || self.peek_char_is('\'') {
             let s = self.parse_string()?;
-
-            // Try to parse as special types
-            if s.starts_with("0x") && s.len() == 42 {
-                if let Ok(addr) = Address::from_hex(&s) {
-                    return Ok(PropertyValue::Address(addr));
-                }
-            }
-            if s.starts_with("0x") && s.len() == 66 {
-                if let Ok(hash) = crate::types::TxHash::from_hex(&s) {
-                    return Ok(PropertyValue::TxHash(hash));
-                }
-            }
-
+            // 不再在解析阶段根据字符串启发式识别 Address/TxHash。
+            // 解析器仅负责将字面量解析为字符串，具体类型转换由执行器
+            //（结合当前图的 schema）在插入时进行。
             Ok(PropertyValue::String(s))
         } else if self.peek_char_is_digit() || self.peek_char_is('-') {
             let num = self.parse_number()?;
@@ -861,7 +851,7 @@ impl GqlParser {
         } else if self.try_keyword("false") {
             Ok(PropertyValue::Boolean(false))
         } else if self.try_keyword("null") || self.try_keyword("NULL") {
-            Ok(PropertyValue::String(String::new()))
+            Ok(PropertyValue::Null)
         } else {
             Err(Error::ParseError("Invalid property value".to_string()))
         }

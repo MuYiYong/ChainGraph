@@ -4,7 +4,7 @@
 
 use crate::error::{Error, Result};
 use crate::graph::{Graph, VertexId};
-use crate::types::{Address, PropertyValue, TokenAmount, TxHash, VertexLabel};
+use crate::types::{PropertyValue, TokenAmount, TxHash, VertexLabel};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
@@ -83,8 +83,9 @@ impl BatchImporter {
             return Err(Error::ImportError("CSV 格式错误".to_string()));
         }
 
-        let from_addr = Address::from_hex(parts[0].trim())?;
-        let to_addr = Address::from_hex(parts[1].trim())?;
+        // 地址按字符串处理，不再解析为 native Address
+        let from_addr = parts[0].trim().to_string();
+        let to_addr = parts[1].trim().to_string();
         let amount = parts[2]
             .trim()
             .parse::<u64>()
@@ -129,8 +130,9 @@ impl BatchImporter {
         let record: TransferRecord = serde_json::from_str(line)
             .map_err(|e| Error::ImportError(format!("JSON 解析错误: {}", e)))?;
 
-        let from_addr = Address::from_hex(&record.from)?;
-        let to_addr = Address::from_hex(&record.to)?;
+        // JSON records contain address strings
+        let from_addr = record.from.clone();
+        let to_addr = record.to.clone();
         let amount = TokenAmount::from_u64(record.value.parse().unwrap_or(0));
 
         let from_id = self.graph.add_account(from_addr)?;

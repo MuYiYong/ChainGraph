@@ -1,18 +1,31 @@
 //! ChainGraph CLI 工具
 //!
-//! 交互式命令行界面
+//! 基于 rustyline 的交互式命令行界面，支持：
+//! - 命令历史记录和持久化
+//! - Tab 补全 GQL 关键字
+//! - 控制台命令 (:help, :tee, :pager 等)
+//! - 表格和垂直格式输出
+//! - 脚本文件执行
 
 use chaingraph::algorithm::{EdmondsKarp, PathFinder, TraceDirection};
+use chaingraph::cli::commands::{execute_console_command, is_console_command, CommandResult, ConsoleState};
+use chaingraph::cli::completer::GqlCompleter;
+use chaingraph::cli::printer::{check_vertical_display, PrintMode, Printer};
 use chaingraph::graph::{Graph, VertexId};
 use chaingraph::query::{GqlParser, QueryExecutor};
-use chaingraph::types::Address;
 use clap::Parser;
-use std::io::{self, BufRead, Write};
+use colored::Colorize;
+use rustyline::error::ReadlineError;
+use rustyline::{Config, Editor};
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 #[derive(Parser, Debug)]
 #[command(name = "chaingraph-cli")]
-#[command(about = "ChainGraph 命令行工具")]
+#[command(about = "ChainGraph 命令行工具 - Web3 区块链链路追踪图数据库")]
+#[command(version)]
 struct Args {
     /// 数据目录
     #[arg(short, long, default_value = "./data")]
@@ -25,56 +38,181 @@ struct Args {
     /// 执行单个查询后退出
     #[arg(short = 'e', long)]
     execute: Option<String>,
+
+    /// 执行脚本文件
+    #[arg(short = 'f', long)]
+    file: Option<PathBuf>,
+
+    /// 查询超时（秒）
+    #[arg(long)]
+    timeout: Option<u64>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    println!("ChainGraph CLI - Web3 区块链链路追踪图数据库");
-    println!("=============================================");
+    // 打印欢迎信息
+    println!("{}", "ChainGraph CLI - Web3 区块链链路追踪图数据库".green().bold());
+    println!("{}", "=".repeat(50).dimmed());
 
+    // 打开图数据库
     let graph = Graph::open(&args.data_dir, Some(args.buffer_size))?;
+    let graph = Arc::new(graph);
 
-    println!("数据库已连接: {}", args.data_dir);
-    println!("  顶点数: {}", graph.vertex_count());
-    println!("  边数: {}", graph.edge_count());
+    println!("数据库已连接: {}", args.data_dir.cyan());
+    println!("  顶点数: {}", graph.vertex_count().to_string().yellow());
+    println!("  边数: {}", graph.edge_count().to_string().yellow());
+
+    // 初始化控制台状态
+    let mut console_state = ConsoleState::new();
+    if let Some(timeout) = args.timeout {
+        console_state.timeout = Some(timeout);
+    }
 
     // 单个查询模式
     if let Some(query) = args.execute {
-        execute_query(&graph, &query)?;
+        let printer = Printer::default();
+        execute_query(&graph, &query, &printer, &mut console_state)?;
         return Ok(());
     }
 
+    // 脚本文件模式
+    if let Some(file_path) = args.file {
+        return execute_script(&graph, &file_path, &mut console_state);
+    }
+
     // 交互模式
-    println!("\n输入 'help' 查看命令列表，'quit' 退出\n");
+    run_interactive(&graph, &mut console_state)
+}
 
-    let stdin = io::stdin();
+/// 运行交互模式
+fn run_interactive(
+    graph: &Arc<Graph>,
+    console_state: &mut ConsoleState,
+) -> Result<(), Box<dyn std::error::Error>> {
+    println!("\n{}", "输入 'help' 或 ':help' 查看命令列表，':quit' 退出".dimmed());
+    println!("{}", "使用 Tab 键自动补全 GQL 关键字".dimmed());
+    println!();
+
+    // 获取历史文件路径
+    let history_path = dirs::home_dir()
+        .map(|p| p.join(".chaingraph_history"))
+        .unwrap_or_else(|| PathBuf::from(".chaingraph_history"));
+
+    // 创建 rustyline 编辑器
+    let config = Config::builder()
+        .auto_add_history(true)
+        .build();
+
+    let mut rl: Editor<GqlCompleter, _> = Editor::with_config(config)?;
+    rl.set_helper(Some(GqlCompleter::new()));
+
+    // 加载历史记录
+    let _ = rl.load_history(&history_path);
+
+    let mut printer = Printer::default();
+
     loop {
-        print!("chaingraph> ");
-        io::stdout().flush()?;
+        let prompt = format!("{} ", "chaingraph>".green().bold());
+        
+        match rl.readline(&prompt) {
+            Ok(line) => {
+                let line = line.trim();
+                if line.is_empty() {
+                    continue;
+                }
 
-        let mut line = String::new();
-        if stdin.lock().read_line(&mut line)? == 0 {
-            break;
-        }
+                // 处理控制台命令
+                if is_console_command(line) {
+                    match execute_console_command(line, console_state) {
+                        CommandResult::Continue => {}
+                        CommandResult::Exit => {
+                            println!("{}", "再见！".cyan());
+                            break;
+                        }
+                        CommandResult::Message(msg) => {
+                            println!("{}", msg);
+                        }
+                        CommandResult::Error(err) => {
+                            println!("{}: {}", "错误".red().bold(), err);
+                        }
+                    }
+                    continue;
+                }
 
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-
-        match handle_command(&graph, line) {
-            Ok(true) => break,
-            Ok(false) => {}
-            Err(e) => println!("错误: {}", e),
+                // 处理普通命令
+                match handle_command(graph, line, &mut printer, console_state) {
+                    Ok(true) => {
+                        println!("{}", "再见！".cyan());
+                        break;
+                    }
+                    Ok(false) => {}
+                    Err(e) => {
+                        println!("{}: {}", "错误".red().bold(), e);
+                    }
+                }
+            }
+            Err(ReadlineError::Interrupted) => {
+                println!("{}", "^C".dimmed());
+                continue;
+            }
+            Err(ReadlineError::Eof) => {
+                println!("{}", "再见！".cyan());
+                break;
+            }
+            Err(err) => {
+                println!("{}: {:?}", "错误".red().bold(), err);
+                break;
+            }
         }
     }
 
-    println!("再见！");
+    // 保存历史记录
+    let _ = rl.save_history(&history_path);
+
     Ok(())
 }
 
-fn handle_command(graph: &Arc<Graph>, input: &str) -> Result<bool, Box<dyn std::error::Error>> {
+/// 执行脚本文件
+fn execute_script(
+    graph: &Arc<Graph>,
+    file_path: &PathBuf,
+    console_state: &mut ConsoleState,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let file = File::open(file_path)?;
+    let reader = BufReader::new(file);
+    let printer = Printer::default();
+    let mut line_num = 0;
+
+    for line in reader.lines() {
+        line_num += 1;
+        let line = line?;
+        let line = line.trim();
+        
+        // 跳过空行和注释
+        if line.is_empty() || line.starts_with("--") || line.starts_with("//") {
+            continue;
+        }
+
+        println!("{} {}", format!("[{}]", line_num).dimmed(), line.cyan());
+        
+        if let Err(e) = execute_query(graph, line, &printer, console_state) {
+            println!("{}: {}", "错误".red().bold(), e);
+            return Err(e);
+        }
+    }
+
+    println!("{}", format!("脚本执行完成，共 {} 行", line_num).green());
+    Ok(())
+}
+
+/// 处理命令
+fn handle_command(
+    graph: &Arc<Graph>,
+    input: &str,
+    printer: &mut Printer,
+    console_state: &mut ConsoleState,
+) -> Result<bool, Box<dyn std::error::Error>> {
     let parts: Vec<&str> = input.splitn(2, ' ').collect();
     let cmd = parts[0].to_lowercase();
     let args = parts.get(1).copied().unwrap_or("");
@@ -83,13 +221,12 @@ fn handle_command(graph: &Arc<Graph>, input: &str) -> Result<bool, Box<dyn std::
         "quit" | "exit" | "q" => return Ok(true),
 
         "help" | "h" | "?" => {
-            print_help();
+            println!("{}", Printer::print_help());
         }
 
         "stats" | "info" => {
-            println!("图统计信息:");
-            println!("  顶点数: {}", graph.vertex_count());
-            println!("  边数: {}", graph.edge_count());
+            let output = printer.print_stats(graph.vertex_count(), graph.edge_count());
+            println!("{}", output);
             println!("  缓冲池大小: {} 页", graph.buffer_pool().pool_size());
             println!("  缓存页面数: {}", graph.buffer_pool().cached_pages());
         }
@@ -98,7 +235,7 @@ fn handle_command(graph: &Arc<Graph>, input: &str) -> Result<bool, Box<dyn std::
             if args.is_empty() {
                 println!("用法: query <GQL 语句>");
             } else {
-                execute_query(graph, args)?;
+                execute_query(graph, args, printer, console_state)?;
             }
         }
 
@@ -107,14 +244,13 @@ fn handle_command(graph: &Arc<Graph>, input: &str) -> Result<bool, Box<dyn std::
                 println!("用法: vertex <ID 或 地址>");
             } else if let Ok(id) = args.parse::<u64>() {
                 show_vertex(graph, VertexId::new(id));
-            } else if let Ok(addr) = Address::from_hex(args) {
+            } else {
+                let addr = args.to_string();
                 if let Some(v) = graph.get_vertex_by_address(&addr) {
                     show_vertex(graph, v.id());
                 } else {
-                    println!("未找到该地址");
+                    println!("{}", "未找到该地址".yellow());
                 }
-            } else {
-                println!("无效的 ID 或地址");
             }
         }
 
@@ -135,11 +271,11 @@ fn handle_command(graph: &Arc<Graph>, input: &str) -> Result<bool, Box<dyn std::
             } else if let (Ok(src), Ok(dst)) = (ids[0].parse::<u64>(), ids[1].parse::<u64>()) {
                 let finder = PathFinder::new(graph.clone());
                 if let Some(path) = finder.shortest_path(VertexId::new(src), VertexId::new(dst)) {
-                    println!("最短路径长度: {}", path.length);
+                    println!("最短路径长度: {}", path.length.to_string().green());
                     println!("路径: {:?}", path.vertices);
                     println!("总权重: {}", path.total_weight);
                 } else {
-                    println!("未找到路径");
+                    println!("{}", "未找到路径".yellow());
                 }
             }
         }
@@ -163,7 +299,7 @@ fn handle_command(graph: &Arc<Graph>, input: &str) -> Result<bool, Box<dyn std::
                 let finder = PathFinder::new(graph.clone());
                 let traces = finder.trace(VertexId::new(start), direction, depth, None);
 
-                println!("找到 {} 条路径:", traces.len());
+                println!("找到 {} 条路径:", traces.len().to_string().green());
                 for (i, trace) in traces.iter().take(10).enumerate() {
                     println!(
                         "  {}: {:?} (权重: {})",
@@ -185,7 +321,7 @@ fn handle_command(graph: &Arc<Graph>, input: &str) -> Result<bool, Box<dyn std::
             } else if let (Ok(src), Ok(sink)) = (ids[0].parse::<u64>(), ids[1].parse::<u64>()) {
                 let algo = EdmondsKarp::new(graph.clone());
                 let result = algo.max_flow(VertexId::new(src), VertexId::new(sink));
-                println!("最大流: {}", result.value);
+                println!("最大流: {}", result.value.to_string().green());
                 println!("流量分配:");
                 for ((u, v), flow) in result.flow.iter().take(10) {
                     println!("  {:?} -> {:?}: {}", u, v, flow);
@@ -194,9 +330,8 @@ fn handle_command(graph: &Arc<Graph>, input: &str) -> Result<bool, Box<dyn std::
         }
 
         "call" => {
-            // 通过 GQL 解析器处理 CALL 语句
             let gql = format!("CALL {}", args);
-            execute_query(graph, &gql)?;
+            execute_query(graph, &gql, printer, console_state)?;
         }
 
         _ => {
@@ -224,9 +359,13 @@ fn handle_command(graph: &Arc<Graph>, input: &str) -> Result<bool, Box<dyn std::
                 || upper.starts_with("COMMIT")
                 || upper.starts_with("ROLLBACK")
             {
-                execute_query(graph, input)?;
+                execute_query(graph, input, printer, console_state)?;
             } else {
-                println!("未知命令: {}。输入 'help' 查看帮助。", cmd);
+                println!(
+                    "{}: {}。输入 'help' 查看帮助。",
+                    "未知命令".yellow(),
+                    cmd
+                );
             }
         }
     }
@@ -234,159 +373,62 @@ fn handle_command(graph: &Arc<Graph>, input: &str) -> Result<bool, Box<dyn std::
     Ok(false)
 }
 
-fn execute_query(graph: &Arc<Graph>, query: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let stmt = GqlParser::new(query).parse()?;
+/// 执行 GQL 查询
+fn execute_query(
+    graph: &Arc<Graph>,
+    query: &str,
+    _printer: &Printer,
+    console_state: &mut ConsoleState,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // 检查是否需要垂直显示
+    let (clean_query, vertical) = check_vertical_display(query);
+    
+    let local_printer = Printer::new(if vertical {
+        PrintMode::Vertical
+    } else {
+        PrintMode::Table
+    });
+
+    let stmt = GqlParser::new(&clean_query).parse()?;
     let executor = QueryExecutor::new(graph.clone());
     let result = executor.execute(&stmt)?;
 
-    // 打印结果
+    // 格式化输出
     if !result.columns.is_empty() {
-        println!("\n{}", result.columns.join(" | "));
-        println!("{}", "-".repeat(result.columns.len() * 15));
+        let string_rows: Vec<Vec<String>> = result
+            .rows
+            .iter()
+            .map(|row| row.iter().map(|v| format!("{:?}", v)).collect())
+            .collect();
 
-        for row in &result.rows {
-            let values: Vec<String> = row.iter().map(|v| format!("{:?}", v)).collect();
-            println!("{}", values.join(" | "));
-        }
-
-        println!(
-            "\n{} 行结果 (耗时 {} ms)",
-            result.rows.len(),
-            result.stats.execution_time_ms
+        let output = local_printer.print_result(
+            &result.columns,
+            &string_rows,
+            result.stats.execution_time_ms,
         );
+
+        // 使用分页器或直接输出
+        if !console_state.paginate(&output, result.rows.len()) {
+            console_state.write_output(&output);
+        }
     }
 
     Ok(())
 }
 
+/// 显示顶点详情
 fn show_vertex(graph: &Arc<Graph>, id: VertexId) {
     if let Some(v) = graph.get_vertex(id) {
-        println!("顶点 {:?}:", id);
-        println!("  标签: {:?}", v.label());
+        println!("顶点 {}:", format!("{:?}", id).cyan());
+        println!("  标签: {}", format!("{:?}", v.label()).yellow());
         println!("  属性:");
-        for (k, v) in v.properties() {
-            println!("    {}: {:?}", k, v);
+        for (k, val) in v.properties() {
+            println!("    {}: {:?}", k.green(), val);
         }
 
-        println!("  出边: {} 条", graph.out_degree(id));
-        println!("  入边: {} 条", graph.in_degree(id));
+        println!("  出边: {} 条", graph.out_degree(id).to_string().yellow());
+        println!("  入边: {} 条", graph.in_degree(id).to_string().yellow());
     } else {
-        println!("顶点不存在");
+        println!("{}", "顶点不存在".yellow());
     }
-}
-
-fn print_help() {
-    println!(
-        "
-═══════════════════════════════════════════════════════════════
-                   ChainGraph CLI 命令帮助
-═══════════════════════════════════════════════════════════════
-
-基础命令:
-  help, h, ?           显示帮助
-  quit, exit, q        退出程序
-  stats, info          显示图统计信息
-  
-  query, gql <GQL>     执行 GQL 查询
-                       示例: query MATCH (n:Account) RETURN n LIMIT 10
-  
-  vertex, v <ID|地址>  查看顶点详情
-                       示例: vertex 1
-                       示例: vertex 0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0
-  
-  neighbors, n <ID>    查看顶点邻居
-                       示例: neighbors 1
-  
-  path <起点> <终点>   查找最短路径
-                       示例: path 1 5
-  
-  trace <起点> [方向] [深度]
-                       追踪路径
-                       方向: forward(默认), backward, both
-                       示例: trace 1 forward 5
-  
-  maxflow <源点> <汇点>
-                       计算最大流
-                       示例: maxflow 1 5
-
-───────────────────────────────────────────────────────────────
-GQL 语句 (ISO GQL 39075 标准)
-───────────────────────────────────────────────────────────────
-
-查询语句:
-  MATCH (n:Account) RETURN n
-  MATCH (a:Account)-[t:Transfer]->(b:Account) RETURN a, b, t
-  MATCH (n) WHERE n.balance > 1000 RETURN n LIMIT 10
-  OPTIONAL MATCH (n:Account) RETURN n
-
-DML 语句:
-  INSERT (n:Account {{address: '0x123...', balance: 1000}})
-  INSERT (a)-[:Transfer {{amount: 100}}]->(b)
-  DELETE n WHERE n.id = 1
-  SET n.balance = 2000
-  REMOVE n.temp_flag
-
-DDL 语句:
-  CREATE GRAPH myGraph
-  CREATE GRAPH myGraph {{ NODE Account, EDGE Transfer }}
-  DROP GRAPH IF EXISTS myGraph
-
-元数据查询:
-  SHOW GRAPHS                  -- 列出所有图
-  SHOW SCHEMAS                 -- 列出所有模式
-  SHOW LABELS                  -- 列出所有顶点标签
-  SHOW EDGE TYPES              -- 列出所有边类型
-  SHOW PROCEDURES              -- 列出所有过程
-  SHOW FUNCTIONS               -- 列出所有函数
-  SHOW INDEXES                 -- 列出所有索引
-  SHOW CONSTRAINTS             -- 列出所有约束
-
-  DESCRIBE GRAPH myGraph       -- 查看图详情
-  DESCRIBE LABEL Account       -- 查看顶点标签详情
-  DESCRIBE EDGE TYPE Transfer  -- 查看边类型详情
-
-过程调用:
-  CALL shortest_path(1, 5)
-  CALL all_paths(1, 5, 10)
-  CALL trace(1, 'forward', 5)
-  CALL max_flow(1, 5)
-  CALL neighbors(1, 'both')
-  CALL degree(1)
-  CALL connected(1, 5)
-  OPTIONAL CALL shortest_path(1, 999)
-
-变量与控制流:
-  LET x = 10, name = 'Alice'
-  FOR i IN range(1, 10)
-  FILTER n.age > 18
-
-SELECT 查询:
-  SELECT n.name, COUNT(*) GROUP BY n.type
-  SELECT DISTINCT n.category
-  SELECT n.name ORDER BY n.created_at DESC LIMIT 10
-
-复合查询:
-  ... UNION ALL ...
-  ... EXCEPT ...
-  ... INTERSECT ...
-  ... OTHERWISE ...
-
-会话管理:
-  SESSION SET SCHEMA mySchema
-  SESSION SET GRAPH myGraph
-  SESSION RESET ALL
-  SESSION CLOSE
-
-事务控制:
-  START TRANSACTION READ WRITE
-  START TRANSACTION READ ONLY
-  COMMIT
-  ROLLBACK
-
-图切换:
-  USE GRAPH ethereum_mainnet
-
-═══════════════════════════════════════════════════════════════
-"
-    );
 }

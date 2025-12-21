@@ -7,12 +7,28 @@ use super::index::{EdgeIndex, VertexIndex};
 use super::vertex::{Vertex, VertexId};
 use crate::error::{Error, Result};
 use crate::storage::BufferPool;
-use crate::types::{Address, EdgeLabel, VertexLabel};
+use crate::types::{EdgeLabel, VertexLabel};
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+
+/// 内部存储的 schema 表示（不依赖 query/ast）
+#[derive(Debug, Clone)]
+pub struct StoredPropertySpec {
+    pub name: String,
+    pub data_type: String,
+    pub is_primary_key: bool,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct StoredGraphSchema {
+    /// node label -> properties
+    pub node_types: HashMap<String, Vec<StoredPropertySpec>>,
+    /// edge label -> properties
+    pub edge_types: HashMap<String, Vec<StoredPropertySpec>>,
+}
 
 /// 图数据库
 pub struct Graph {
@@ -30,6 +46,8 @@ pub struct Graph {
     vertex_cache: RwLock<HashMap<VertexId, Vertex>>,
     /// 边缓存（内存中）
     edge_cache: RwLock<HashMap<EdgeId, Edge>>,
+    /// 可选的图 schema（由 CREATE GRAPH 保存）
+    schema: RwLock<Option<StoredGraphSchema>>,
 }
 
 impl Graph {
@@ -45,7 +63,18 @@ impl Graph {
             next_edge_id: AtomicU64::new(1),
             vertex_cache: RwLock::new(HashMap::new()),
             edge_cache: RwLock::new(HashMap::new()),
+            schema: RwLock::new(None),
         }))
+    }
+
+    /// 设置图 schema（来自 CREATE GRAPH 的内联 schema）
+    pub fn set_schema(&self, s: StoredGraphSchema) {
+        *self.schema.write() = Some(s);
+    }
+
+    /// 获取当前图的 schema（如果有）
+    pub fn get_schema(&self) -> Option<StoredGraphSchema> {
+        self.schema.read().clone()
     }
 
     /// 创建内存图（用于测试）
@@ -79,8 +108,8 @@ impl Graph {
     }
 
     /// 添加账户顶点
-    pub fn add_account(&self, address: Address) -> Result<VertexId> {
-        // 检查是否已存在
+    pub fn add_account(&self, address: String) -> Result<VertexId> {
+        // 检查是否已存在（按字符串地址）
         if let Some(existing_id) = self.vertex_index.get_by_address(&address) {
             return Ok(existing_id);
         }
@@ -99,7 +128,7 @@ impl Graph {
     }
 
     /// 添加合约顶点
-    pub fn add_contract(&self, address: Address) -> Result<VertexId> {
+    pub fn add_contract(&self, address: String) -> Result<VertexId> {
         if let Some(existing_id) = self.vertex_index.get_by_address(&address) {
             return Ok(existing_id);
         }
@@ -120,7 +149,7 @@ impl Graph {
     }
 
     /// 通过地址获取顶点
-    pub fn get_vertex_by_address(&self, address: &Address) -> Option<Vertex> {
+    pub fn get_vertex_by_address(&self, address: &str) -> Option<Vertex> {
         let id = self.vertex_index.get_by_address(address)?;
         self.get_vertex(id)
     }

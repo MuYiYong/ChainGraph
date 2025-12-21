@@ -7,6 +7,7 @@
 //! - 批量区块链数据导入
 
 pub mod algorithm;
+pub mod cli;
 pub mod error;
 pub mod graph;
 pub mod import;

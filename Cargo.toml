@@ -64,7 +64,10 @@ hex = "0.4"
 
 # CLI and server
 clap = { version = "4.4", features = ["derive"] }
-rustyline = "13.0"
+rustyline = { version = "13.0", features = ["derive"] }
+prettytable-rs = "0.10"
+dirs = "5.0"
+colored = "2.1"
 axum = "0.7"
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "trace"] }

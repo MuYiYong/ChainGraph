@@ -4,14 +4,15 @@
 
 use crate::graph::edge::EdgeId;
 use crate::graph::vertex::VertexId;
-use crate::types::{Address, EdgeLabel, VertexLabel};
+use crate::types::{EdgeLabel, VertexLabel};
+use std::collections::HashMap as StdHashMap;
 use parking_lot::RwLock;
 use std::collections::{HashMap, HashSet};
 
 /// 顶点索引
 pub struct VertexIndex {
-    /// 地址到顶点 ID 的映射
-    address_to_id: RwLock<HashMap<Address, VertexId>>,
+    /// 地址字符串到顶点 ID 的映射
+    address_to_id: RwLock<StdHashMap<String, VertexId>>,
     /// 标签到顶点 ID 集合的映射
     label_to_ids: RwLock<HashMap<VertexLabel, HashSet<VertexId>>>,
     /// 顶点 ID 到页面位置的映射
@@ -22,19 +23,19 @@ impl VertexIndex {
     /// 创建新索引
     pub fn new() -> Self {
         Self {
-            address_to_id: RwLock::new(HashMap::new()),
+            address_to_id: RwLock::new(StdHashMap::new()),
             label_to_ids: RwLock::new(HashMap::new()),
             id_to_location: RwLock::new(HashMap::new()),
         }
     }
 
     /// 添加地址索引
-    pub fn add_address(&self, address: Address, vertex_id: VertexId) {
+    pub fn add_address(&self, address: String, vertex_id: VertexId) {
         self.address_to_id.write().insert(address, vertex_id);
     }
 
     /// 通过地址查找顶点
-    pub fn get_by_address(&self, address: &Address) -> Option<VertexId> {
+    pub fn get_by_address(&self, address: &str) -> Option<VertexId> {
         self.address_to_id.read().get(address).copied()
     }
 
@@ -72,7 +73,7 @@ impl VertexIndex {
     pub fn remove(
         &self,
         vertex_id: VertexId,
-        address: Option<&Address>,
+        address: Option<&str>,
         label: Option<&VertexLabel>,
     ) {
         if let Some(addr) = address {

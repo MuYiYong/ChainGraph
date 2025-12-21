@@ -9,5 +9,6 @@ mod vertex;
 
 pub use edge::{Edge, EdgeId};
 pub use graph::Graph;
+pub use graph::{StoredGraphSchema, StoredPropertySpec};
 pub use index::{EdgeIndex, VertexIndex};
 pub use vertex::{Vertex, VertexId};
