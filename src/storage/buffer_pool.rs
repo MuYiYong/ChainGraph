@@ -3,6 +3,7 @@
 //! 实现内存页面缓存和 LRU 淘汰策略
 
 use crate::error::{Error, Result};
+use crate::metrics;
 use crate::storage::disk::DiskStorage;
 use crate::storage::page::{Page, PageType};
 use parking_lot::{Mutex, RwLock};
@@ -164,6 +165,9 @@ impl BufferPool {
                 frame.pin_count += 1;
                 self.replacer.lock().remove(page_id);
 
+                // 记录缓存命中
+                metrics::global_metrics().record_buffer_hit();
+
                 return Ok(PageHandle {
                     page_id,
                     frame_id,
@@ -171,6 +175,9 @@ impl BufferPool {
                 });
             }
         }
+
+        // 记录缓存未命中
+        metrics::global_metrics().record_buffer_miss();
 
         // 从磁盘加载
         let frame_id = self.find_free_frame()?;
@@ -216,12 +223,17 @@ impl BufferPool {
                     .ok_or_else(|| Error::StorageError("LRU 淘汰页面不在页表中".to_string()))?
             };
 
+            // 记录页面驱逐
+            metrics::global_metrics().record_eviction();
+
             // 如果脏页，写回磁盘
             {
                 let frame = self.frames[frame_id].read();
                 if frame.is_dirty {
                     if let Some(ref page) = frame.page {
                         self.disk.write_page(page)?;
+                        // 记录脏页写回
+                        metrics::global_metrics().record_dirty_write();
                     }
                 }
             }
@@ -313,6 +325,46 @@ impl BufferPool {
     pub fn cached_pages(&self) -> usize {
         self.page_table.lock().len()
     }
+
+    /// 获取水位信息（用于监控）
+    pub fn watermark_info(&self) -> BufferPoolWatermark {
+        let cached = self.cached_pages();
+        let total = self.pool_size;
+        let usage_percent = (cached as f64 / total as f64) * 100.0;
+
+        BufferPoolWatermark {
+            cached_pages: cached,
+            total_pages: total,
+            usage_percent,
+            status: if usage_percent >= 90.0 {
+                WatermarkStatus::Critical
+            } else if usage_percent >= 80.0 {
+                WatermarkStatus::Warning
+            } else {
+                WatermarkStatus::Normal
+            },
+        }
+    }
+}
+
+/// 缓冲池水位信息
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct BufferPoolWatermark {
+    pub cached_pages: usize,
+    pub total_pages: usize,
+    pub usage_percent: f64,
+    pub status: WatermarkStatus,
+}
+
+/// 水位状态
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WatermarkStatus {
+    /// 正常 (< 80%)
+    Normal,
+    /// 警告 (80-90%)
+    Warning,
+    /// 危险 (>= 90%)
+    Critical,
 }
 
 /// 页面句柄（RAII 自动释放）

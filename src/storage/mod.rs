@@ -10,6 +10,6 @@ mod buffer_pool;
 mod disk;
 mod page;
 
-pub use buffer_pool::BufferPool;
+pub use buffer_pool::{BufferPool, BufferPoolWatermark, WatermarkStatus};
 pub use disk::DiskStorage;
 pub use page::{Page, PageType, PAGE_SIZE};

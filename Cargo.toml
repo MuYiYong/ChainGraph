@@ -91,6 +91,9 @@ byteorder = "1.5"
 # CSV for data import
 csv = "1.3"
 
+# Metrics and monitoring
+once_cell = "1.19"
+
 [dev-dependencies]
 criterion = "0.5"
 tempfile = "3.9"

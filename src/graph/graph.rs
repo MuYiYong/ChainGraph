@@ -715,6 +715,11 @@ impl Graph {
         &self.buffer_pool
     }
 
+    /// 获取缓冲池水位信息
+    pub fn buffer_pool_watermark(&self) -> crate::storage::BufferPoolWatermark {
+        self.buffer_pool.watermark_info()
+    }
+
     /// 获取边索引引用
     pub fn edge_index(&self) -> &EdgeIndex {
         &self.edge_index

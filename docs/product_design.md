@@ -125,9 +125,9 @@
 - **多图与图类型管理** ✅ 已实现：CREATE/DROP/USE GRAPH 可创建/删除/切换真实图实例，图目录 `GraphCatalog` 实现多图隔离与图元数据持久化（对照 6.13、6.17、2.1、2.4）。
 - **内置类型系统** ✅ 已实现：提供 `builtin_types` 模块，定义 5 种内置 NODE TYPE（__Account、__Transaction、__Block、__Token、__Contract）和 5 种内置 EDGE TYPE（__Transfer、__TxRel、__Call、__Approval、__TokenTransfer），支持在 CREATE GRAPH 中通过 `NODE __Account` 引用。SHOW LABELS/EDGE TYPES 动态返回内置类型完整属性定义（对照 6.17、6.19）。
 - **元数据/索引/约束**：SHOW/DESCRIBE 现可返回内置类型元信息，但仍缺乏用户自定义索引、约束管理，也无建索引/建约束 DDL；需补齐元数据存储与查询（对照 6.19–6.20）。
-- **运维与可观测性**：仅有简单 /health，无 Prometheus 指标、结构化日志、分布式追踪、慢查询与资源水位；缺少备份/恢复接口与校验流程（对照 2.7、0.10）。
+- **运维与可观测性** ✅ 已实现：提供 Prometheus 指标端点（/metrics）和详细统计端点（/stats），包括查询 QPS、缓冲池命中率、慢查询计数、资源水位监控等。缺少结构化日志、分布式追踪、备份/恢复接口（对照 2.7、0.10）。
 - **REST 版本与错误码**：HTTP 接口无版本化与兼容策略，错误仅字符串；需分层错误码与纠正提示，完善版本前缀（对照 0.5、0.6、0.9）。
-- **性能与资源控制**：无缓存/线程池/句柄水位指标或限流，缺少基线验证与报警（对照 0.7、4.x）。
+- **性能与资源控制** ✅ 已实现：集成指标收集模块（metrics.rs），BufferPool 水位监控（80% 警告、90% 危险），查询执行时间统计。缺少线程池监控、句柄限流、基线验证与报警（对照 0.7、4.x）。
 - **ISO GQL 局限**：文档标记的未实现项（在线模式演化 DDL、窗口函数、时空类型、GQL DCL、UDF/UDP 动态注册、跨图单语句查询）仍为空白，需按 3.2 路线规划。
 
 ## 8. 更新记录
@@ -137,3 +137,8 @@
 - ✅ 增强 SHOW LABELS/EDGE TYPES：动态返回内置类型完整属性定义和描述
 - ✅ 修复 CLI/Server 编译错误：更新所有入口使用 GraphCatalog 而非直接 Graph
 - ✅ 更新文档和示例：添加 builtin_types_demo.gql 演示文件
+- ✅ 实现性能监控：metrics 模块提供 Prometheus 格式指标导出
+- ✅ 实现资源水位监控：BufferPool 水位状态（Normal/Warning/Critical）
+- ✅ 实现查询统计：QPS、平均响应时间、慢查询计数、成功/失败率
+- ✅ 实现缓冲池指标：命中率、驱逐次数、脏页写回统计
+- ✅ 实现 REST API 监控端点：/metrics（Prometheus 格式）、/stats（JSON 详细信息）

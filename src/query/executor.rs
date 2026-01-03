@@ -5,6 +5,7 @@
 use super::ast::*;
 use crate::error::{Error, Result};
 use crate::graph::{Edge, Graph, GraphCatalog, Vertex, VertexId};
+use crate::metrics;
 use crate::types::{EdgeLabel, PropertyValue, TokenAmount, VertexLabel};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -85,6 +86,7 @@ impl QueryExecutor {
 
     pub fn execute(&self, stmt: &GqlStatement) -> Result<QueryResult> {
         let start = std::time::Instant::now();
+        let timer = metrics::global_metrics().record_query_start();
 
         let result = match stmt {
             GqlStatement::Match(query) => self.execute_match(query),
@@ -107,6 +109,10 @@ impl QueryExecutor {
             GqlStatement::Session(stmt) => self.execute_session(stmt),
             GqlStatement::Transaction(stmt) => self.execute_transaction(stmt),
         };
+
+        // 记录查询完成
+        let success = result.is_ok();
+        metrics::global_metrics().record_query_complete(timer, success);
 
         let mut result = result?;
         result.stats.execution_time_ms = start.elapsed().as_millis() as u64;

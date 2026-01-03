@@ -289,6 +289,7 @@ dependencies = [
  "lru",
  "lz4_flex",
  "memmap2",
+ "once_cell",
  "parking_lot",
  "prettytable-rs",
  "primitive-types",

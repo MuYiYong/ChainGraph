@@ -12,6 +12,7 @@ pub mod cli;
 pub mod error;
 pub mod graph;
 pub mod import;
+pub mod metrics;
 pub mod query;
 pub mod server;
 pub mod storage;

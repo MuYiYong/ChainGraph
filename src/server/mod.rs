@@ -5,11 +5,12 @@
 use crate::algorithm::{EdmondsKarp, PathFinder, TraceDirection};
 use crate::error::{Error, Result};
 use crate::graph::{EdgeId, GraphCatalog, VertexId};
+use crate::metrics;
 use crate::query::{GqlParser, QueryExecutor};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    response::{IntoResponse, Json},
+    response::{IntoResponse, Json, Response},
     routing::{get, post},
     Router,
 };
@@ -46,6 +47,9 @@ pub async fn start_server(config: ServerConfig, catalog: Arc<GraphCatalog>) -> R
     let app = Router::new()
         // 健康检查
         .route("/health", get(health_check))
+        // 指标和统计
+        .route("/metrics", get(metrics_handler))
+        .route("/stats", get(stats_handler))
         // GQL 查询
         .route("/query", post(execute_query))
         // 顶点操作
@@ -60,8 +64,6 @@ pub async fn start_server(config: ServerConfig, catalog: Arc<GraphCatalog>) -> R
         .route("/algorithm/all-paths", post(all_paths))
         .route("/algorithm/max-flow", post(max_flow))
         .route("/algorithm/trace", post(trace_path))
-        // 统计信息
-        .route("/stats", get(get_stats))
         .with_state(state);
 
     let addr = format!("{}:{}", config.host, config.port);
@@ -84,6 +86,60 @@ async fn health_check() -> impl IntoResponse {
     Json(serde_json::json!({
         "status": "ok",
         "version": env!("CARGO_PKG_VERSION")
+    }))
+}
+
+/// Prometheus 格式指标
+async fn metrics_handler() -> Response {
+    use axum::body::Body;
+    
+    let metrics = metrics::global_metrics();
+    let prom = metrics.to_prometheus();
+    
+    Response::builder()
+        .status(StatusCode::OK)
+        .header("Content-Type", "text/plain; version=0.0.4")
+        .body(Body::from(prom.content))
+        .unwrap()
+        .into_response()
+}
+
+/// 详细统计信息
+async fn stats_handler(State(state): State<AppState>) -> impl IntoResponse {
+    let metrics = metrics::global_metrics();
+    let snapshot = metrics.snapshot();
+    
+    // 获取缓冲池水位信息
+    let graph = state.catalog.current_graph();
+    let watermark = graph.buffer_pool_watermark();
+    
+    Json(serde_json::json!({
+        "query": {
+            "total": snapshot.total_queries,
+            "success": snapshot.success_queries,
+            "failed": snapshot.failed_queries,
+            "avg_duration_ms": snapshot.avg_query_duration_ms,
+            "slow_queries": snapshot.slow_queries,
+            "qps": snapshot.qps,
+        },
+        "buffer_pool": {
+            "hits": snapshot.buffer_pool_hits,
+            "misses": snapshot.buffer_pool_misses,
+            "hit_rate": snapshot.buffer_pool_hit_rate,
+            "evictions": snapshot.buffer_pool_evictions,
+            "dirty_writes": snapshot.buffer_pool_dirty_writes,
+            "watermark": watermark,
+        },
+        "graph": {
+            "vertices_inserted": snapshot.vertices_inserted,
+            "edges_inserted": snapshot.edges_inserted,
+            "vertices_queried": snapshot.vertices_queried,
+            "edges_queried": snapshot.edges_queried,
+        },
+        "system": {
+            "uptime_seconds": snapshot.uptime_seconds,
+            "version": env!("CARGO_PKG_VERSION"),
+        }
     }))
 }
 
@@ -286,18 +342,6 @@ async fn trace_path(
 }
 
 /// 统计信息
-async fn get_stats(State(state): State<AppState>) -> impl IntoResponse {
-    let graph = state.catalog.current_graph();
-    let stats = GraphStats {
-        vertex_count: graph.vertex_count(),
-        edge_count: graph.edge_count(),
-        buffer_pool_size: graph.buffer_pool().pool_size(),
-        cached_pages: graph.buffer_pool().cached_pages(),
-    };
-
-    (StatusCode::OK, Json(ApiResponse::success(stats)))
-}
-
 /// 图统计信息
 #[derive(Debug, Serialize)]
 pub struct GraphStats {
