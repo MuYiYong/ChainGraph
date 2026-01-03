@@ -7,6 +7,7 @@
 //! - 批量区块链数据导入
 
 pub mod algorithm;
+pub mod builtin_types;
 pub mod cli;
 pub mod error;
 pub mod graph;
@@ -17,8 +18,9 @@ pub mod storage;
 pub mod types;
 
 // 重导出常用类型
+pub use builtin_types::{BuiltinEdgeType, BuiltinGraph, BuiltinNodeType};
 pub use error::{Error, Result};
-pub use graph::{Edge, EdgeId, Graph, Vertex, VertexId};
+pub use graph::{Edge, EdgeId, Graph, GraphCatalog, Vertex, VertexId};
 pub use storage::{BufferPool, DiskStorage, Page, PageType, PAGE_SIZE};
 pub use types::{Address, EdgeLabel, PropertyValue, TokenAmount, TxHash, VertexLabel};
 

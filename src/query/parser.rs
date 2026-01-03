@@ -1608,6 +1608,7 @@ impl GqlParser {
     }
 
     /// Parse inline graph schema: { NODE Account {id String PRIMARY KEY}, ... }
+    /// Also supports builtin type references: { NODE __Account, EDGE __Transfer }
     fn parse_inline_schema(&mut self) -> Result<GraphSchema> {
         self.expect_char('{')?;
         self.skip_whitespace();
@@ -1625,64 +1626,108 @@ impl GqlParser {
                 self.skip_whitespace();
                 let label = self.parse_identifier()?;
                 
-                // Parse properties: { prop type [PK], ... }
+                // Check if this is a builtin type reference (starts with __)
+                let is_builtin_ref = label.starts_with("__");
+                
+                // Parse properties: { prop type [PK], ... } (only for non-builtin types)
                 self.skip_whitespace();
-                let properties = if self.try_char('{') {
+                let properties = if !is_builtin_ref && self.try_char('{') {
                     let props = self.parse_property_list()?;
                     self.expect_char('}')?;
+                    props
+                } else if !is_builtin_ref && self.try_char('(') {
+                    // Alternative syntax: Account ( prop type PK, ... )
+                    let props = self.parse_property_list_parens()?;
+                    self.expect_char(')')?;
                     props
                 } else {
                     Vec::new()
                 };
 
-                node_types.push(NodeTypeSpec { label, properties });
+                node_types.push(NodeTypeSpec { label, properties, is_builtin_ref });
 
             } else if self.try_keyword("EDGE") {
                 self.skip_whitespace();
                 let label = self.parse_identifier()?;
                 
-                // Parse connection: (Source)-[{props}]->(Target)
-                self.skip_whitespace();
+                // Check if this is a builtin type reference (starts with __)
+                let is_builtin_ref = label.starts_with("__");
                 
-                // Source
-                self.expect_char('(')?;
-                let source_label = self.parse_identifier()?;
-                self.expect_char(')')?;
-                
-                // Edge + Properties
-                self.expect_char('-')?;
-                self.expect_char('[')?;
-                
-                let properties = if self.peek_char() != Some(']') {
-                    if self.try_char('{') {
-                         let props = self.parse_property_list()?;
-                         self.expect_char('}')?;
-                         props
-                    } else {
-                        // Try to parse properties directly if not wrapped in {} inside []
-                        // But based on example `-[{...}]->`, we expect {}.
-                        // If empty [], it's handled by checks.
-                        Vec::new()
+                if is_builtin_ref {
+                    // Builtin edge type reference - no connection syntax needed
+                    self.skip_whitespace();
+                    // But if there's a connection syntax, parse it and ignore (for flexibility)
+                    if self.peek_char() == Some('(') {
+                        // Skip optional connection hint
+                        self.expect_char('(')?;
+                        let _ = self.parse_identifier()?;
+                        self.expect_char(')')?;
+                        self.expect_char('-')?;
+                        self.expect_char('[')?;
+                        if self.peek_char() != Some(']') {
+                            if self.try_char('{') {
+                                let _ = self.parse_property_list()?;
+                                self.expect_char('}')?;
+                            }
+                        }
+                        self.expect_char(']')?;
+                        self.expect_char('-')?;
+                        self.expect_char('>')?;
+                        self.expect_char('(')?;
+                        let _ = self.parse_identifier()?;
+                        self.expect_char(')')?;
                     }
+                    
+                    edge_types.push(EdgeTypeSpec {
+                        label,
+                        source_label: String::new(),
+                        target_label: String::new(),
+                        properties: Vec::new(),
+                        is_builtin_ref: true,
+                    });
                 } else {
-                    Vec::new()
-                };
-                
-                self.expect_char(']')?;
-                self.expect_char('-')?;
-                self.expect_char('>')?;
-                
-                // Target
-                self.expect_char('(')?;
-                let target_label = self.parse_identifier()?;
-                self.expect_char(')')?;
+                    // Custom edge type - parse connection: (Source)-[{props}]->(Target)
+                    self.skip_whitespace();
+                    
+                    // Source
+                    self.expect_char('(')?;
+                    let source_label = self.parse_identifier()?;
+                    self.expect_char(')')?;
+                    
+                    // Edge + Properties
+                    self.expect_char('-')?;
+                    self.expect_char('[')?;
+                    
+                    let properties = if self.peek_char() != Some(']') {
+                        if self.try_char('{') {
+                             let props = self.parse_property_list()?;
+                             self.expect_char('}')?;
+                             props
+                        } else {
+                            // Try to parse properties directly without {} wrapper
+                            self.parse_edge_property_list()?
+                        }
+                    } else {
+                        Vec::new()
+                    };
+                    
+                    self.expect_char(']')?;
+                    self.expect_char('-')?;
+                    self.expect_char('>')?;
+                    
+                    // Target
+                    self.expect_char('(')?;
+                    let target_label = self.parse_identifier()?;
+                    self.expect_char(')')?;
 
-                edge_types.push(EdgeTypeSpec {
-                    label,
-                    source_label,
-                    target_label,
-                    properties,
-                });
+                    edge_types.push(EdgeTypeSpec {
+                        label,
+                        source_label,
+                        target_label,
+                        properties,
+                        is_builtin_ref: false,
+                    });
+                }
             } else {
                 return Err(Error::ParseError(
                     "Expected NODE or EDGE in inline schema".to_string(),
@@ -1748,6 +1793,43 @@ impl GqlParser {
         Ok(type_name)
     }
 
+    /// Parse property list with parentheses: ( prop type PK, ... )
+    /// Alternative syntax for node type definitions
+    fn parse_property_list_parens(&mut self) -> Result<Vec<PropertySpec>> {
+        let mut props = Vec::new();
+        loop {
+            self.skip_whitespace();
+            if self.peek_char() == Some(')') {
+                break;
+            }
+            props.push(self.parse_property_spec()?);
+            self.skip_whitespace();
+            if !self.try_char(',') {
+                break;
+            }
+        }
+        Ok(props)
+    }
+
+    /// Parse edge property list directly inside [ ] without {} wrapper
+    /// For syntax like: -[prop1 type, prop2 type]->
+    fn parse_edge_property_list(&mut self) -> Result<Vec<PropertySpec>> {
+        let mut props = Vec::new();
+        loop {
+            self.skip_whitespace();
+            if self.peek_char() == Some(']') {
+                break;
+            }
+            props.push(self.parse_property_spec()?);
+            self.skip_whitespace();
+            if !self.try_char(',') {
+                break;
+            }
+        }
+        Ok(props)
+    }
+
+
     fn parse_drop(&mut self) -> Result<GqlStatement> {
         self.expect_keyword("DROP")?;
         self.skip_whitespace();
@@ -1784,8 +1866,15 @@ impl GqlParser {
 
         let show_type = if self.try_keyword("GRAPHS") {
             ShowType::Graphs
+        } else if self.try_keyword("GRAPH") {
+            if self.try_keyword("TYPES") || self.try_keyword("TYPE") {
+                ShowType::GraphTypes
+            } else {
+                return Err(Error::ParseError("Expected TYPES after GRAPH".to_string()));
+            }
         } else if self.try_keyword("SCHEMAS") {
-            ShowType::Schemas
+            // 向后兼容：SCHEMAS 等价于 GRAPH TYPES
+            ShowType::GraphTypes
         } else if self.try_keyword("FUNCTIONS") {
             ShowType::Functions
         } else if self.try_keyword("PROCEDURES") {
@@ -1833,11 +1922,21 @@ impl GqlParser {
 
         let (describe_type, name) = if self.try_keyword("GRAPH") {
             self.skip_whitespace();
+            if self.try_keyword("TYPE") {
+                self.skip_whitespace();
+                let name = self.parse_identifier()?;
+                (DescribeType::GraphType, name)
+            } else {
+                let name = self.parse_identifier()?;
+                (DescribeType::Graph, name)
+            }
+        } else if self.try_keyword("GRAPH") && self.try_keyword("TYPE") {
             let name = self.parse_identifier()?;
-            (DescribeType::Graph, name)
+            (DescribeType::GraphType, name)
         } else if self.try_keyword("SCHEMA") {
+            // 向后兼容
             let name = self.parse_identifier()?;
-            (DescribeType::Schema, name)
+            (DescribeType::GraphType, name)
         } else if self.try_keyword("LABEL") || self.try_keyword("VERTEX") {
             if self.try_keyword("TYPE") {
                 // DESCRIBE VERTEX TYPE name
@@ -2320,14 +2419,21 @@ impl GqlParser {
 
         let stmt = if self.try_keyword("SET") {
             self.skip_whitespace();
-            if self.try_keyword("SCHEMA") {
+            if self.try_keyword("GRAPH") {
+                self.skip_whitespace();
+                if self.try_keyword("TYPE") {
+                    self.skip_whitespace();
+                    let name = self.parse_identifier()?;
+                    SessionStatement::Set(SessionSetItem::GraphType(name))
+                } else {
+                    let name = self.parse_identifier()?;
+                    SessionStatement::Set(SessionSetItem::Graph(name))
+                }
+            } else if self.try_keyword("SCHEMA") {
+                // 向后兼容
                 self.skip_whitespace();
                 let name = self.parse_identifier()?;
-                SessionStatement::Set(SessionSetItem::Schema(name))
-            } else if self.try_keyword("GRAPH") {
-                self.skip_whitespace();
-                let name = self.parse_identifier()?;
-                SessionStatement::Set(SessionSetItem::Graph(name))
+                SessionStatement::Set(SessionSetItem::GraphType(name))
             } else if self.try_keyword("TIME") {
                 self.expect_keyword("ZONE")?;
                 self.skip_whitespace();
@@ -2346,8 +2452,16 @@ impl GqlParser {
             self.skip_whitespace();
             if self.try_keyword("ALL") {
                 SessionStatement::Reset(SessionResetItem::All)
+            } else if self.try_keyword("GRAPH") {
+                self.skip_whitespace();
+                if self.try_keyword("TYPE") {
+                    SessionStatement::Reset(SessionResetItem::GraphType)
+                } else {
+                    SessionStatement::Reset(SessionResetItem::Graph)
+                }
             } else if self.try_keyword("SCHEMA") {
-                SessionStatement::Reset(SessionResetItem::Schema)
+                // 向后兼容
+                SessionStatement::Reset(SessionResetItem::GraphType)
             } else if self.try_keyword("GRAPH") {
                 SessionStatement::Reset(SessionResetItem::Graph)
             } else if self.try_keyword("TIME") {

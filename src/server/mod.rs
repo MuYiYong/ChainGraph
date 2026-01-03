@@ -4,7 +4,7 @@
 
 use crate::algorithm::{EdmondsKarp, PathFinder, TraceDirection};
 use crate::error::{Error, Result};
-use crate::graph::{EdgeId, Graph, VertexId};
+use crate::graph::{EdgeId, GraphCatalog, VertexId};
 use crate::query::{GqlParser, QueryExecutor};
 use axum::{
     extract::{Path, State},
@@ -36,12 +36,12 @@ impl Default for ServerConfig {
 /// 应用状态
 #[derive(Clone)]
 pub struct AppState {
-    pub graph: Arc<Graph>,
+    pub catalog: Arc<GraphCatalog>,
 }
 
 /// 启动服务器
-pub async fn start_server(config: ServerConfig, graph: Arc<Graph>) -> Result<()> {
-    let state = AppState { graph };
+pub async fn start_server(config: ServerConfig, catalog: Arc<GraphCatalog>) -> Result<()> {
+    let state = AppState { catalog };
 
     let app = Router::new()
         // 健康检查
@@ -98,7 +98,7 @@ async fn execute_query(
     State(state): State<AppState>,
     Json(req): Json<QueryRequest>,
 ) -> axum::response::Response {
-    let executor = QueryExecutor::new(state.graph);
+    let executor = QueryExecutor::new(state.catalog.clone());
 
     match GqlParser::new(&req.query).parse() {
         Ok(stmt) => match executor.execute(&stmt) {
@@ -122,7 +122,8 @@ async fn get_vertex(
     State(state): State<AppState>,
     Path(id): Path<u64>,
 ) -> axum::response::Response {
-    match state.graph.get_vertex(VertexId::new(id)) {
+    let graph = state.catalog.current_graph();
+    match graph.get_vertex(VertexId::new(id)) {
         Some(vertex) => (StatusCode::OK, Json(ApiResponse::success(vertex))).into_response(),
         None => (
             StatusCode::NOT_FOUND,
@@ -138,7 +139,8 @@ async fn get_vertex_by_address(
     Path(address): Path<String>,
 ) -> axum::response::Response {
     // 地址作为普通字符串处理
-    match state.graph.get_vertex_by_address(&address) {
+    let graph = state.catalog.current_graph();
+    match graph.get_vertex_by_address(&address) {
         Some(vertex) => (StatusCode::OK, Json(ApiResponse::success(vertex))).into_response(),
         None => (
             StatusCode::NOT_FOUND,
@@ -150,7 +152,8 @@ async fn get_vertex_by_address(
 
 /// 获取边
 async fn get_edge(State(state): State<AppState>, Path(id): Path<u64>) -> axum::response::Response {
-    match state.graph.get_edge(EdgeId::new(id)) {
+    let graph = state.catalog.current_graph();
+    match graph.get_edge(EdgeId::new(id)) {
         Some(edge) => (StatusCode::OK, Json(ApiResponse::success(edge))).into_response(),
         None => (
             StatusCode::NOT_FOUND,
@@ -165,7 +168,8 @@ async fn get_outgoing_edges(
     State(state): State<AppState>,
     Path(id): Path<u64>,
 ) -> impl IntoResponse {
-    let edges = state.graph.get_outgoing_edges(VertexId::new(id));
+    let graph = state.catalog.current_graph();
+    let edges = graph.get_outgoing_edges(VertexId::new(id));
     (StatusCode::OK, Json(ApiResponse::success(edges)))
 }
 
@@ -174,7 +178,8 @@ async fn get_incoming_edges(
     State(state): State<AppState>,
     Path(id): Path<u64>,
 ) -> impl IntoResponse {
-    let edges = state.graph.get_incoming_edges(VertexId::new(id));
+    let graph = state.catalog.current_graph();
+    let edges = graph.get_incoming_edges(VertexId::new(id));
     (StatusCode::OK, Json(ApiResponse::success(edges)))
 }
 
@@ -202,7 +207,8 @@ async fn shortest_path(
     State(state): State<AppState>,
     Json(req): Json<PathRequest>,
 ) -> axum::response::Response {
-    let finder = PathFinder::new(state.graph);
+    let graph = state.catalog.current_graph();
+    let finder = PathFinder::new(graph);
     let result = finder.shortest_path(VertexId::new(req.source), VertexId::new(req.target));
 
     match result {
@@ -216,7 +222,8 @@ async fn all_paths(
     State(state): State<AppState>,
     Json(req): Json<PathRequest>,
 ) -> impl IntoResponse {
-    let finder = PathFinder::new(state.graph);
+    let graph = state.catalog.current_graph();
+    let finder = PathFinder::new(graph);
     let paths = finder.all_paths(
         VertexId::new(req.source),
         VertexId::new(req.target),
@@ -238,7 +245,8 @@ async fn max_flow(
     State(state): State<AppState>,
     Json(req): Json<MaxFlowRequest>,
 ) -> impl IntoResponse {
-    let algo = EdmondsKarp::new(state.graph);
+    let graph = state.catalog.current_graph();
+    let algo = EdmondsKarp::new(graph);
     let result = algo.max_flow(VertexId::new(req.source), VertexId::new(req.sink));
 
     (StatusCode::OK, Json(ApiResponse::success(result)))
@@ -263,7 +271,8 @@ async fn trace_path(
     State(state): State<AppState>,
     Json(req): Json<TraceRequest>,
 ) -> impl IntoResponse {
-    let finder = PathFinder::new(state.graph);
+    let graph = state.catalog.current_graph();
+    let finder = PathFinder::new(graph);
 
     let direction = match req.direction.as_str() {
         "backward" => TraceDirection::Backward,
@@ -278,11 +287,12 @@ async fn trace_path(
 
 /// 统计信息
 async fn get_stats(State(state): State<AppState>) -> impl IntoResponse {
+    let graph = state.catalog.current_graph();
     let stats = GraphStats {
-        vertex_count: state.graph.vertex_count(),
-        edge_count: state.graph.edge_count(),
-        buffer_pool_size: state.graph.buffer_pool().pool_size(),
-        cached_pages: state.graph.buffer_pool().cached_pages(),
+        vertex_count: graph.vertex_count(),
+        edge_count: graph.edge_count(),
+        buffer_pool_size: graph.buffer_pool().pool_size(),
+        cached_pages: graph.buffer_pool().cached_pages(),
     };
 
     (StatusCode::OK, Json(ApiResponse::success(stats)))

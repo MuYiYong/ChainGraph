@@ -11,7 +11,7 @@ use chaingraph::algorithm::{EdmondsKarp, PathFinder, TraceDirection};
 use chaingraph::cli::commands::{execute_console_command, is_console_command, CommandResult, ConsoleState};
 use chaingraph::cli::completer::GqlCompleter;
 use chaingraph::cli::printer::{check_vertical_display, PrintMode, Printer};
-use chaingraph::graph::{Graph, VertexId};
+use chaingraph::graph::{GraphCatalog, VertexId};
 use chaingraph::query::{GqlParser, QueryExecutor};
 use clap::Parser;
 use colored::Colorize;
@@ -55,11 +55,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", "ChainGraph CLI - Web3 区块链链路追踪图数据库".green().bold());
     println!("{}", "=".repeat(50).dimmed());
 
-    // 打开图数据库
-    let graph = Graph::open(&args.data_dir, Some(args.buffer_size))?;
-    let graph = Arc::new(graph);
+    // 打开图目录（多图）
+    let catalog = GraphCatalog::open(&args.data_dir, Some(args.buffer_size))?;
+    let catalog = Arc::new(catalog);
+    let graph = catalog.current_graph();
 
     println!("数据库已连接: {}", args.data_dir.cyan());
+    println!("  当前图: {}", catalog.current_graph_name().yellow());
     println!("  顶点数: {}", graph.vertex_count().to_string().yellow());
     println!("  边数: {}", graph.edge_count().to_string().yellow());
 
@@ -72,22 +74,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 单个查询模式
     if let Some(query) = args.execute {
         let printer = Printer::default();
-        execute_query(&graph, &query, &printer, &mut console_state)?;
+        execute_query(&catalog, &query, &printer, &mut console_state)?;
         return Ok(());
     }
 
     // 脚本文件模式
     if let Some(file_path) = args.file {
-        return execute_script(&graph, &file_path, &mut console_state);
+        return execute_script(&catalog, &file_path, &mut console_state);
     }
 
     // 交互模式
-    run_interactive(&graph, &mut console_state)
+    run_interactive(&catalog, &mut console_state)
 }
 
 /// 运行交互模式
 fn run_interactive(
-    graph: &Arc<Graph>,
+    catalog: &Arc<GraphCatalog>,
     console_state: &mut ConsoleState,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n{}", "输入 'help' 或 ':help' 查看命令列表，':quit' 退出".dimmed());
@@ -113,6 +115,7 @@ fn run_interactive(
     let mut printer = Printer::default();
 
     loop {
+        let graph = catalog.current_graph();
         let prompt = format!("{} ", "chaingraph>".green().bold());
         
         match rl.readline(&prompt) {
@@ -124,7 +127,7 @@ fn run_interactive(
 
                 // 处理控制台命令
                 if is_console_command(line) {
-                    match execute_console_command(line, console_state, graph) {
+                    match execute_console_command(line, console_state, &graph) {
                         CommandResult::Continue => {}
                         CommandResult::Exit => {
                             // 退出前保存数据
@@ -145,7 +148,7 @@ fn run_interactive(
                 }
 
                 // 处理普通命令
-                match handle_command(graph, line, &mut printer, console_state) {
+                match handle_command(catalog, line, &mut printer, console_state) {
                     Ok(true) => {
                         // 退出前保存数据
                         if let Err(e) = graph.flush() {
@@ -187,7 +190,7 @@ fn run_interactive(
 
 /// 执行脚本文件
 fn execute_script(
-    graph: &Arc<Graph>,
+    catalog: &Arc<GraphCatalog>,
     file_path: &PathBuf,
     console_state: &mut ConsoleState,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -208,7 +211,7 @@ fn execute_script(
 
         println!("{} {}", format!("[{}]", line_num).dimmed(), line.cyan());
         
-        if let Err(e) = execute_query(graph, line, &printer, console_state) {
+        if let Err(e) = execute_query(catalog, line, &printer, console_state) {
             println!("{}: {}", "错误".red().bold(), e);
             return Err(e);
         }
@@ -220,11 +223,12 @@ fn execute_script(
 
 /// 处理命令
 fn handle_command(
-    graph: &Arc<Graph>,
+    catalog: &Arc<GraphCatalog>,
     input: &str,
     printer: &mut Printer,
     console_state: &mut ConsoleState,
 ) -> Result<bool, Box<dyn std::error::Error>> {
+    let graph = catalog.current_graph();
     let parts: Vec<&str> = input.splitn(2, ' ').collect();
     let cmd = parts[0].to_lowercase();
     let args = parts.get(1).copied().unwrap_or("");
@@ -247,7 +251,7 @@ fn handle_command(
             if args.is_empty() {
                 println!("用法: query <GQL 语句>");
             } else {
-                execute_query(graph, args, printer, console_state)?;
+                execute_query(catalog, args, printer, console_state)?;
             }
         }
 
@@ -255,11 +259,11 @@ fn handle_command(
             if args.is_empty() {
                 println!("用法: vertex <ID 或 地址>");
             } else if let Ok(id) = args.parse::<u64>() {
-                show_vertex(graph, VertexId::new(id));
+                show_vertex(catalog, VertexId::new(id));
             } else {
                 let addr = args.to_string();
                 if let Some(v) = graph.get_vertex_by_address(&addr) {
-                    show_vertex(graph, v.id());
+                    show_vertex(catalog, v.id());
                 } else {
                     println!("{}", "未找到该地址".yellow());
                 }
@@ -343,7 +347,7 @@ fn handle_command(
 
         "call" => {
             let gql = format!("CALL {}", args);
-            execute_query(graph, &gql, printer, console_state)?;
+            execute_query(catalog, &gql, printer, console_state)?;
         }
 
         _ => {
@@ -371,7 +375,7 @@ fn handle_command(
                 || upper.starts_with("COMMIT")
                 || upper.starts_with("ROLLBACK")
             {
-                execute_query(graph, input, printer, console_state)?;
+                execute_query(catalog, input, printer, console_state)?;
             } else {
                 println!(
                     "{}: {}。输入 'help' 查看帮助。",
@@ -387,7 +391,7 @@ fn handle_command(
 
 /// 执行 GQL 查询
 fn execute_query(
-    graph: &Arc<Graph>,
+    catalog: &Arc<GraphCatalog>,
     query: &str,
     _printer: &Printer,
     console_state: &mut ConsoleState,
@@ -402,7 +406,7 @@ fn execute_query(
     });
 
     let stmt = GqlParser::new(&clean_query).parse()?;
-    let executor = QueryExecutor::new(graph.clone());
+    let executor = QueryExecutor::new(catalog.clone());
     let result = executor.execute(&stmt)?;
 
     // 格式化输出
@@ -429,7 +433,8 @@ fn execute_query(
 }
 
 /// 显示顶点详情
-fn show_vertex(graph: &Arc<Graph>, id: VertexId) {
+fn show_vertex(catalog: &Arc<GraphCatalog>, id: VertexId) {
+    let graph = catalog.current_graph();
     if let Some(v) = graph.get_vertex(id) {
         println!("顶点 {}:", format!("{:?}", id).cyan());
         println!("  标签: {}", format!("{:?}", v.label()).yellow());

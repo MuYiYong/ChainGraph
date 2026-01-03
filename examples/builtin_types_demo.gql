@@ -1,0 +1,161 @@
+-- ============================================================
+-- ChainGraph 内置类型示例 - Built-in Types Demo
+-- ============================================================
+-- 演示如何使用内置 NODE TYPE 和 EDGE TYPE
+-- ============================================================
+
+-- ==================== 使用内置类型创建 Graph ====================
+
+-- 示例 1: 仅使用内置类型创建区块链分析图
+CREATE GRAPH IF NOT EXISTS blockchain_analysis {
+   NODE __Account,
+   NODE __Transaction,
+   NODE __Block,
+   EDGE __Transfer,
+   EDGE __TxRel
+}
+
+-- 示例 2: 混合使用内置类型和自定义类型
+CREATE GRAPH IF NOT EXISTS custom_analysis {
+   -- 内置类型
+   NODE __Account,
+   NODE __Transaction,
+   
+   -- 自定义节点类型
+   NODE RiskProfile (
+      address STRING PRIMARY KEY,
+      risk_score FLOAT,
+      category STRING,
+      last_updated INT64
+   ),
+   
+   -- 内置边类型
+   EDGE __Transfer,
+   
+   -- 自定义边类型
+   EDGE HasRisk (__Account)-[
+      assigned_at INT64,
+      confidence FLOAT
+   ]->(RiskProfile)
+}
+
+-- ==================== 预定义区块链 Graph 示例 ====================
+
+-- 以下是系统内置的区块链 Graph 模板 GQL:
+
+-- Ethereum 数据模型 (__ethereum)
+-- CREATE GRAPH IF NOT EXISTS __ethereum {
+--    NODE __Account,
+--    NODE __Transaction,
+--    NODE __Block,
+--    NODE __Token,
+--    NODE __Contract,
+--    EDGE __Transfer,
+--    EDGE __TxRel,
+--    EDGE __Call,
+--    EDGE __Approval,
+--    EDGE __TokenTransfer
+-- }
+
+-- Tron 数据模型 (__tron)
+-- CREATE GRAPH IF NOT EXISTS __tron {
+--    NODE __Account,
+--    NODE __Transaction,
+--    NODE __Block,
+--    NODE __Token,
+--    EDGE __Transfer,
+--    EDGE __TxRel,
+--    EDGE __Call
+-- }
+
+-- BSC 数据模型 (__bsc)
+-- CREATE GRAPH IF NOT EXISTS __bsc {
+--    NODE __Account,
+--    NODE __Transaction,
+--    NODE __Block,
+--    NODE __Token,
+--    EDGE __Transfer,
+--    EDGE __TxRel,
+--    EDGE __Call
+-- }
+
+-- ==================== 内置 NODE TYPE 详情 ====================
+
+-- __Account - 外部账户/地址
+-- 属性:
+--   address STRING PRIMARY KEY
+--   entity_label STRING
+--   risk_label STRING
+--   first_seen_block INT64
+--   last_active_block INT64
+
+-- __Transaction - 链上交易
+-- 属性:
+--   hash STRING PRIMARY KEY
+--   block_number INT64
+--   block_timestamp INT64
+--   value STRING
+--   gas_used INT64
+--   gas_price STRING
+--   status INT
+
+-- __Block - 区块
+-- 属性:
+--   number INT64 PRIMARY KEY
+--   hash STRING
+--   parent_hash STRING
+--   timestamp INT64
+--   miner STRING
+--   tx_count INT64
+
+-- __Token - 代币合约
+-- 属性:
+--   address STRING PRIMARY KEY
+--   name STRING
+--   symbol STRING
+--   decimals INT
+--   total_supply STRING
+
+-- __Contract - 智能合约
+-- 属性:
+--   address STRING PRIMARY KEY
+--   name STRING
+--   creator STRING
+--   creation_block INT64
+--   is_verified BOOL
+--   bytecode_hash STRING
+
+-- ==================== 内置 EDGE TYPE 详情 ====================
+
+-- __Transfer (__Account) -> (__Account) - 转账关系（聚合）
+-- 属性:
+--   token_address STRING
+--   first_time INT64
+--   last_time INT64
+--   sum STRING
+--   tx_count INT64
+
+-- __TxRel (__Account) -> (__Transaction) - 账户与交易关系
+-- 属性:
+--   type STRING
+--   value STRING
+
+-- __Call (__Account) -> (__Contract) - 合约调用
+-- 属性:
+--   method STRING
+--   tx_hash STRING
+--   block_number INT64
+--   success BOOL
+
+-- __Approval (__Account) -> (__Account) - ERC20 授权
+-- 属性:
+--   token_address STRING
+--   amount STRING
+--   tx_hash STRING
+
+-- __TokenTransfer (__Account) -> (__Account) - 单笔代币转账
+-- 属性:
+--   token_address STRING
+--   amount STRING
+--   tx_hash STRING
+--   log_index INT

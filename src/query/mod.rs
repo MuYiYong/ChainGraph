@@ -26,11 +26,14 @@ pub use ast::{
     DropGraphStatement,
     EdgeDirection,
     EdgePattern,
+    // Graph Schema 类型
+    EdgeTypeSpec,
     // 表达式
     Expression,
     // 顶级语句
     GqlStatement,
     GraphPattern,
+    GraphSchema,
     InsertEdge,
     // DML 语句
     InsertStatement,
@@ -39,12 +42,14 @@ pub use ast::{
     // MATCH 语句
     MatchStatement,
     NodePattern,
+    NodeTypeSpec,
     OrderByItem,
     PathElement,
     PathMode,
     PathPattern,
     PathSearchPrefix,
     PatternQuantifier,
+    PropertySpec,
     RemoveStatement,
     ReturnItem,
     SetStatement,

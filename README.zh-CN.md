@@ -195,12 +195,18 @@ curl -X POST http://localhost:8080/algorithm/max-flow \
 
 ## 📖 GQL 查询示例
 
-### 基本查询
+### 创建图 (使用内置类型)
 
 ```gql
--- 查找账户
-MATCH (n:Account) RETURN n LIMIT 100
+-- 方式 1: 使用内置类型快速创建区块链分析图
+CREATE GRAPH blockchain_analysis {
+   NODE __Account,        -- 内置账户类型 (address, entity_label, risk_label...)
+   NODE __Transaction,    -- 内置交易类型 (hash, block_number, value...)
+   EDGE __Transfer,       -- 内置转账边类型 (token_address, sum, tx_count...)
+   EDGE __TxRel          -- 内置账户-交易关系
+};
 
+-- 方式 2: 自定义类型创建图
 CREATE GRAPH financial_graph {
   -- 定义 Account 节点，address 为主键
   NODE Account {
@@ -227,6 +233,18 @@ CREATE GRAPH financial_graph {
 
 -- 切换到新图
 USE GRAPH financial_graph;
+```
+
+### 基本查询
+
+```gql
+-- 查找账户
+MATCH (n:Account) RETURN n LIMIT 100
+
+-- 查看所有内置类型
+SHOW LABELS
+SHOW EDGE TYPES
+SHOW GRAPHS
 
 ```gql
 -- 插入账户顶点

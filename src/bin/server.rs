@@ -2,7 +2,7 @@
 //!
 //! 启动 HTTP API 服务器
 
-use chaingraph::graph::Graph;
+use chaingraph::graph::GraphCatalog;
 use chaingraph::server::{start_server, ServerConfig};
 use clap::Parser;
 
@@ -36,12 +36,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("数据目录: {}", args.data_dir);
     println!("缓冲池大小: {} 页", args.buffer_size);
 
-    // 打开图数据库
-    let graph = Graph::open(&args.data_dir, Some(args.buffer_size))?;
+    // 打开图目录（多图）
+    let catalog = GraphCatalog::open(&args.data_dir, Some(args.buffer_size))?;
+    let current = catalog.current_graph();
 
     println!("图数据库已加载");
-    println!("  顶点数: {}", graph.vertex_count());
-    println!("  边数: {}", graph.edge_count());
+    println!("  当前图: default");
+    println!("  顶点数: {}", current.vertex_count());
+    println!("  边数: {}", current.edge_count());
 
     // 启动服务器
     let config = ServerConfig {
@@ -49,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         port: args.port,
     };
 
-    start_server(config, graph).await?;
+    start_server(config, catalog).await?;
 
     Ok(())
 }

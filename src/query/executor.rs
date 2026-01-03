@@ -4,7 +4,7 @@
 
 use super::ast::*;
 use crate::error::{Error, Result};
-use crate::graph::{Edge, Graph, Vertex, VertexId};
+use crate::graph::{Edge, Graph, GraphCatalog, Vertex, VertexId};
 use crate::types::{EdgeLabel, PropertyValue, TokenAmount, VertexLabel};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -71,12 +71,16 @@ enum BindingValue {
 
 /// Query executor
 pub struct QueryExecutor {
-    graph: Arc<Graph>,
+    catalog: Arc<GraphCatalog>,
 }
 
 impl QueryExecutor {
-    pub fn new(graph: Arc<Graph>) -> Self {
-        Self { graph }
+    pub fn new(catalog: Arc<GraphCatalog>) -> Self {
+        Self { catalog }
+    }
+
+    fn graph(&self) -> Arc<Graph> {
+        self.catalog.current_graph()
     }
 
     pub fn execute(&self, stmt: &GqlStatement) -> Result<QueryResult> {
@@ -367,7 +371,7 @@ impl QueryExecutor {
                         }
 
                         let target_id = self.get_edge_target(&e, &source, edge.direction);
-                        if let Some(target_vertex) = self.graph.get_vertex(target_id) {
+                        if let Some(target_vertex) = self.graph().get_vertex(target_id) {
                             if self.match_node_pattern(target, &target_vertex) {
                                 let mut new_bind = bindings.clone();
                                 if let Some(ref var) = edge.variable {
@@ -417,7 +421,7 @@ impl QueryExecutor {
         let source_vertices = self.get_candidate_vertices(source_pattern, &initial, stats);
         let target_vertices = self.get_candidate_vertices(target_pattern, &initial, stats);
 
-        let finder = PathFinder::new(self.graph.clone());
+        let finder = PathFinder::new(self.graph());
         let mut results = Vec::new();
 
         for source in &source_vertices {
@@ -632,7 +636,7 @@ impl QueryExecutor {
                 };
 
                 if can_visit {
-                    if let Some(next_vertex) = self.graph.get_vertex(next_id) {
+                    if let Some(next_vertex) = self.graph().get_vertex(next_id) {
                         let mut new_path = path.clone();
                         new_path.push(next_id);
                         let mut new_edges = edges.clone();
@@ -652,28 +656,28 @@ impl QueryExecutor {
     /// Supports all 7 edge direction types
     fn get_edges_by_direction(&self, vertex: &Vertex, direction: EdgeDirection) -> Vec<Edge> {
         match direction {
-            EdgeDirection::Outgoing => self.graph.get_outgoing_edges(vertex.id()),
-            EdgeDirection::Incoming => self.graph.get_incoming_edges(vertex.id()),
+            EdgeDirection::Outgoing => self.graph().get_outgoing_edges(vertex.id()),
+            EdgeDirection::Incoming => self.graph().get_incoming_edges(vertex.id()),
             EdgeDirection::Undirected => {
                 // For truly undirected graphs, we'd filter by undirected edge type
                 // For directed graphs, treat as bidirectional
-                let mut all = self.graph.get_outgoing_edges(vertex.id());
-                all.extend(self.graph.get_incoming_edges(vertex.id()));
+                let mut all = self.graph().get_outgoing_edges(vertex.id());
+                all.extend(self.graph().get_incoming_edges(vertex.id()));
                 all
             }
             EdgeDirection::AnyDirection | EdgeDirection::LeftOrRight => {
                 // Both directions: outgoing and incoming
-                let mut all = self.graph.get_outgoing_edges(vertex.id());
-                all.extend(self.graph.get_incoming_edges(vertex.id()));
+                let mut all = self.graph().get_outgoing_edges(vertex.id());
+                all.extend(self.graph().get_incoming_edges(vertex.id()));
                 all
             }
             EdgeDirection::LeftOrUndirected => {
                 // Incoming or undirected
-                self.graph.get_incoming_edges(vertex.id())
+                self.graph().get_incoming_edges(vertex.id())
             }
             EdgeDirection::UndirectedOrRight => {
                 // Outgoing or undirected
-                self.graph.get_outgoing_edges(vertex.id())
+                self.graph().get_outgoing_edges(vertex.id())
             }
         }
     }
@@ -719,13 +723,13 @@ impl QueryExecutor {
                 VertexLabel::Transaction,
                 VertexLabel::Block,
             ] {
-                all.extend(self.graph.get_vertices_by_label(label));
+                all.extend(self.graph().get_vertices_by_label(label));
             }
             all
         } else {
             let mut candidates = Vec::new();
             for label in &labels {
-                candidates.extend(self.graph.get_vertices_by_label(label));
+                candidates.extend(self.graph().get_vertices_by_label(label));
             }
             candidates
         };
@@ -1053,7 +1057,7 @@ impl QueryExecutor {
                     vertices: p
                         .iter()
                         .filter_map(|id| {
-                            self.graph.get_vertex(*id).map(|v| VertexData {
+                            self.graph().get_vertex(*id).map(|v| VertexData {
                                 id: v.id().as_u64(),
                                 label: format!("{:?}", v.label()),
                                 properties: v.properties().clone(),
@@ -1093,7 +1097,7 @@ impl QueryExecutor {
                 // 按当前图的 schema 决定是否把 address 字段当作 Address 类型来处理。
                 // 按 schema 决定 address 是否为 string（默认）
                 let mut address_prop: Option<String> = None;
-                if let Some(stored) = self.graph.get_schema() {
+                if let Some(stored) = self.graph().get_schema() {
                     let label_name = label.as_str();
                     if let Some(prop_specs) = stored.node_types.get(label_name) {
                         if let Some(addr_spec) = prop_specs.iter().find(|p| p.name == "address") {
@@ -1125,26 +1129,26 @@ impl QueryExecutor {
 
                 let id = if let Some(addr) = address_prop {
                     match label {
-                        VertexLabel::Contract => self.graph.add_contract(addr)?,
-                        _ => self.graph.add_account(addr)?,
+                        VertexLabel::Contract => self.graph().add_contract(addr)?,
+                        _ => self.graph().add_account(addr)?,
                     }
                 } else {
-                    self.graph.add_vertex(label)?
+                    self.graph().add_vertex(label)?
                 };
 
-                if let Some(mut vertex) = self.graph.get_vertex(id) {
+                if let Some(mut vertex) = self.graph().get_vertex(id) {
                     for (key, value) in &node.properties {
                         if key != "address" {
                             vertex.set_property(key.clone(), value.clone());
                         }
                     }
-                    self.graph.update_vertex(vertex)?;
+                    self.graph().update_vertex(vertex)?;
                 }
 
                 inserted_vertices += 1;
                 id
             } else {
-                let id = self.graph.add_vertex(VertexLabel::Account)?;
+                let id = self.graph().add_vertex(VertexLabel::Account)?;
                 inserted_vertices += 1;
                 id
             };
@@ -1192,11 +1196,11 @@ impl QueryExecutor {
 
             match label {
                 EdgeLabel::Transfer => {
-                    self.graph
+                    self.graph()
                         .add_transfer(*src_id, *dst_id, amount, block_number)?;
                 }
                 _ => {
-                    self.graph.add_edge(label, *src_id, *dst_id)?;
+                    self.graph().add_edge(label, *src_id, *dst_id)?;
                 }
             }
             inserted_edges += 1;
@@ -1254,7 +1258,7 @@ impl QueryExecutor {
                 let source = self.eval_to_int(&stmt.arguments[0])?;
                 let target = self.eval_to_int(&stmt.arguments[1])?;
 
-                let finder = PathFinder::new(self.graph.clone());
+                let finder = PathFinder::new(self.graph());
                 if let Some(path) =
                     finder.shortest_path(VertexId::new(source as u64), VertexId::new(target as u64))
                 {
@@ -1302,7 +1306,7 @@ impl QueryExecutor {
                     10
                 };
 
-                let finder = PathFinder::new(self.graph.clone());
+                let finder = PathFinder::new(self.graph());
                 let paths = finder.all_paths(
                     VertexId::new(source as u64),
                     VertexId::new(target as u64),
@@ -1364,7 +1368,7 @@ impl QueryExecutor {
                     5
                 };
 
-                let finder = PathFinder::new(self.graph.clone());
+                let finder = PathFinder::new(self.graph());
                 let traces = finder.trace(VertexId::new(start as u64), direction, max_depth, None);
 
                 let rows: Vec<Vec<ResultValue>> = traces
@@ -1405,7 +1409,7 @@ impl QueryExecutor {
                 let source = self.eval_to_int(&stmt.arguments[0])?;
                 let sink = self.eval_to_int(&stmt.arguments[1])?;
 
-                let algo = EdmondsKarp::new(self.graph.clone());
+                let algo = EdmondsKarp::new(self.graph());
                 let result =
                     algo.max_flow(VertexId::new(source as u64), VertexId::new(sink as u64));
 
@@ -1449,7 +1453,7 @@ impl QueryExecutor {
                 let mut rows = Vec::new();
                 match direction.as_str() {
                     "out" => {
-                        for neighbor in self.graph.neighbors(vertex_id) {
+                        for neighbor in self.graph().neighbors(vertex_id) {
                             rows.push(vec![
                                 ResultValue::Scalar(PropertyValue::String("out".to_string())),
                                 ResultValue::Scalar(PropertyValue::Integer(
@@ -1459,7 +1463,7 @@ impl QueryExecutor {
                         }
                     }
                     "in" => {
-                        for neighbor in self.graph.predecessors(vertex_id) {
+                        for neighbor in self.graph().predecessors(vertex_id) {
                             rows.push(vec![
                                 ResultValue::Scalar(PropertyValue::String("in".to_string())),
                                 ResultValue::Scalar(PropertyValue::Integer(
@@ -1469,7 +1473,7 @@ impl QueryExecutor {
                         }
                     }
                     _ => {
-                        for neighbor in self.graph.neighbors(vertex_id) {
+                        for neighbor in self.graph().neighbors(vertex_id) {
                             rows.push(vec![
                                 ResultValue::Scalar(PropertyValue::String("out".to_string())),
                                 ResultValue::Scalar(PropertyValue::Integer(
@@ -1477,7 +1481,7 @@ impl QueryExecutor {
                                 )),
                             ]);
                         }
-                        for neighbor in self.graph.predecessors(vertex_id) {
+                        for neighbor in self.graph().predecessors(vertex_id) {
                             rows.push(vec![
                                 ResultValue::Scalar(PropertyValue::String("in".to_string())),
                                 ResultValue::Scalar(PropertyValue::Integer(
@@ -1501,8 +1505,8 @@ impl QueryExecutor {
                 }
                 let vid = self.eval_to_int(&stmt.arguments[0])?;
                 let vertex_id = VertexId::new(vid as u64);
-                let out_degree = self.graph.out_degree(vertex_id);
-                let in_degree = self.graph.in_degree(vertex_id);
+                let out_degree = self.graph().out_degree(vertex_id);
+                let in_degree = self.graph().in_degree(vertex_id);
 
                 Ok(QueryResult {
                     columns: vec![
@@ -1532,7 +1536,7 @@ impl QueryExecutor {
                 let source = self.eval_to_int(&stmt.arguments[0])?;
                 let target = self.eval_to_int(&stmt.arguments[1])?;
 
-                let finder = PathFinder::new(self.graph.clone());
+                let finder = PathFinder::new(self.graph());
                 let connected = finder
                     .shortest_path(VertexId::new(source as u64), VertexId::new(target as u64))
                     .is_some();
@@ -1560,80 +1564,122 @@ impl QueryExecutor {
     }
 
     fn execute_create_graph(&self, stmt: &CreateGraphStatement) -> Result<QueryResult> {
-        let schema_info = if let Some(ref schema) = stmt.schema {
-            // Validate schema rules
+        use crate::builtin_types::{expand_builtin_edge_type, expand_builtin_node_type};
+        
+        // First, expand any builtin type references in the schema
+        let expanded_schema = if let Some(ref schema) = stmt.schema {
+            let mut expanded_node_types = Vec::new();
+            let mut expanded_edge_types = Vec::new();
             
-            // 1. Validate Node Types
+            // Expand node types
             for node_type in &schema.node_types {
-                // Check built-in type prefix rule
-                if node_type.label.starts_with("__") {
-                    return Err(Error::QueryError(format!(
-                        "User defined node type '{}' cannot start with '__' (reserved for built-in types)", 
-                        node_type.label
-                    )));
-                }
-
-                // Check Primary Key requirement (Difference Doc Item 3)
-                let has_pk = node_type.properties.iter().any(|p| p.is_primary_key);
-                if !has_pk {
-                    return Err(Error::QueryError(format!(
-                        "Node type '{}' must have a PRIMARY KEY", 
-                        node_type.label
-                    )));
-                }
-
-                // Check for duplicate properties
-                let mut prop_names = std::collections::HashSet::new();
-                for prop in &node_type.properties {
-                    if !prop_names.insert(&prop.name) {
-                         return Err(Error::QueryError(format!(
-                            "Duplicate property '{}' in node type '{}'", 
-                            prop.name, node_type.label
+                if node_type.is_builtin_ref {
+                    // This is a builtin type reference - expand it
+                    if let Some(expanded) = expand_builtin_node_type(&node_type.label) {
+                        expanded_node_types.push(expanded);
+                    } else {
+                        return Err(Error::QueryError(format!(
+                            "Unknown builtin node type '{}'. Available: __Account, __Transaction, __Block, __Token, __Contract",
+                            node_type.label
                         )));
                     }
+                } else {
+                    // User-defined type - validate it
+                    // Check built-in type prefix rule
+                    if node_type.label.starts_with("__") {
+                        return Err(Error::QueryError(format!(
+                            "User defined node type '{}' cannot start with '__' (reserved for built-in types)", 
+                            node_type.label
+                        )));
+                    }
+
+                    // Check Primary Key requirement
+                    let has_pk = node_type.properties.iter().any(|p| p.is_primary_key);
+                    if !has_pk {
+                        return Err(Error::QueryError(format!(
+                            "Node type '{}' must have a PRIMARY KEY", 
+                            node_type.label
+                        )));
+                    }
+
+                    // Check for duplicate properties
+                    let mut prop_names = std::collections::HashSet::new();
+                    for prop in &node_type.properties {
+                        if !prop_names.insert(&prop.name) {
+                             return Err(Error::QueryError(format!(
+                                "Duplicate property '{}' in node type '{}'", 
+                                prop.name, node_type.label
+                            )));
+                        }
+                    }
+                    
+                    expanded_node_types.push(node_type.clone());
                 }
             }
-
-            // 2. Validate Edge Types
+            
+            // Expand edge types
             for edge_type in &schema.edge_types {
-                // Check built-in type prefix rule
-                if edge_type.label.starts_with("__") {
-                    return Err(Error::QueryError(format!(
-                        "User defined edge type '{}' cannot start with '__' (reserved for built-in types)", 
-                        edge_type.label
-                    )));
-                }
-
-                // Verify source and target nodes exist in the schema
-                let source_exists = schema.node_types.iter().any(|n| n.label == edge_type.source_label);
-                let target_exists = schema.node_types.iter().any(|n| n.label == edge_type.target_label);
-
-                if !source_exists {
-                    return Err(Error::QueryError(format!(
-                        "Edge type '{}' refers to undefined source node type '{}'", 
-                        edge_type.label, edge_type.source_label
-                    )));
-                }
-                if !target_exists {
-                    return Err(Error::QueryError(format!(
-                        "Edge type '{}' refers to undefined target node type '{}'", 
-                        edge_type.label, edge_type.target_label
-                    )));
-                }
-                
-                // Edge Key is optional, but if present must be unique (already checked by hashset logic generally)
-                // Check for duplicate properties
-                let mut prop_names = std::collections::HashSet::new();
-                for prop in &edge_type.properties {
-                    if !prop_names.insert(&prop.name) {
-                         return Err(Error::QueryError(format!(
-                            "Duplicate property '{}' in edge type '{}'", 
-                            prop.name, edge_type.label
+                if edge_type.is_builtin_ref {
+                    // This is a builtin type reference - expand it
+                    if let Some(expanded) = expand_builtin_edge_type(&edge_type.label) {
+                        expanded_edge_types.push(expanded);
+                    } else {
+                        return Err(Error::QueryError(format!(
+                            "Unknown builtin edge type '{}'. Available: __Transfer, __TxRel, __Call, __Approval, __TokenTransfer",
+                            edge_type.label
                         )));
                     }
+                } else {
+                    // User-defined type - validate it
+                    // Check built-in type prefix rule
+                    if edge_type.label.starts_with("__") {
+                        return Err(Error::QueryError(format!(
+                            "User defined edge type '{}' cannot start with '__' (reserved for built-in types)", 
+                            edge_type.label
+                        )));
+                    }
+
+                    // Verify source and target nodes exist in the schema
+                    let source_exists = expanded_node_types.iter().any(|n| n.label == edge_type.source_label);
+                    let target_exists = expanded_node_types.iter().any(|n| n.label == edge_type.target_label);
+
+                    if !source_exists {
+                        return Err(Error::QueryError(format!(
+                            "Edge type '{}' refers to undefined source node type '{}'", 
+                            edge_type.label, edge_type.source_label
+                        )));
+                    }
+                    if !target_exists {
+                        return Err(Error::QueryError(format!(
+                            "Edge type '{}' refers to undefined target node type '{}'", 
+                            edge_type.label, edge_type.target_label
+                        )));
+                    }
+                    
+                    // Check for duplicate properties
+                    let mut prop_names = std::collections::HashSet::new();
+                    for prop in &edge_type.properties {
+                        if !prop_names.insert(&prop.name) {
+                             return Err(Error::QueryError(format!(
+                                "Duplicate property '{}' in edge type '{}'", 
+                                prop.name, edge_type.label
+                            )));
+                        }
+                    }
+                    
+                    expanded_edge_types.push(edge_type.clone());
                 }
             }
-
+            
+            Some(crate::query::GraphSchema {
+                node_types: expanded_node_types,
+                edge_types: expanded_edge_types,
+            })
+        } else {
+            None
+        };
+        
+        let schema_info = if let Some(ref schema) = expanded_schema {
             format!(
                 " with {} node types and {} edge types",
                 schema.node_types.len(),
@@ -1642,8 +1688,12 @@ impl QueryExecutor {
         } else {
             String::new()
         };
+        
+        // 创建图实例并持久化
+        let target_graph = self.catalog.create_graph(&stmt.name)?;
+        
         // 如果提供了 inline schema，把它转换并保存到图的运行时状态中
-        if let Some(ref schema) = stmt.schema {
+        if let Some(ref schema) = expanded_schema {
             let mut stored = crate::graph::StoredGraphSchema::default();
             for node in &schema.node_types {
                 let props = node
@@ -1670,7 +1720,7 @@ impl QueryExecutor {
                 stored.edge_types.insert(edge.label.clone(), props);
             }
 
-            self.graph.set_schema(stored);
+            target_graph.set_schema(stored);
         }
         
         Ok(QueryResult {
@@ -1684,6 +1734,7 @@ impl QueryExecutor {
     }
 
     fn execute_drop_graph(&self, stmt: &DropGraphStatement) -> Result<QueryResult> {
+        self.catalog.drop_graph(&stmt.name)?;
         Ok(QueryResult {
             columns: vec!["result".to_string()],
             rows: vec![vec![ResultValue::Scalar(PropertyValue::String(format!(
@@ -1702,29 +1753,33 @@ impl QueryExecutor {
     fn execute_show(&self, stmt: &ShowStatement) -> Result<QueryResult> {
         match stmt.show_type {
             ShowType::Graphs => {
-                // Return list of graphs (simulated for now)
                 let columns = vec![
                     "name".to_string(),
                     "type".to_string(),
                     "vertex_count".to_string(),
                     "edge_count".to_string(),
                 ];
-                let rows = vec![vec![
-                    ResultValue::Scalar(PropertyValue::String("default".to_string())),
-                    ResultValue::Scalar(PropertyValue::String("Closed".to_string())),
-                    ResultValue::Scalar(PropertyValue::Integer(self.graph.vertex_count() as i64)),
-                    ResultValue::Scalar(PropertyValue::Integer(self.graph.edge_count() as i64)),
-                ]];
+                let mut rows = Vec::new();
+                for name in self.catalog.list_graphs() {
+                    if let Ok(g) = self.catalog.ensure_graph(&name) {
+                        rows.push(vec![
+                            ResultValue::Scalar(PropertyValue::String(name.clone())),
+                            ResultValue::Scalar(PropertyValue::String("Closed".to_string())),
+                            ResultValue::Scalar(PropertyValue::Integer(g.vertex_count() as i64)),
+                            ResultValue::Scalar(PropertyValue::Integer(g.edge_count() as i64)),
+                        ]);
+                    }
+                }
                 Ok(QueryResult {
                     columns,
                     rows,
                     stats: QueryStats::default(),
                 })
             }
-            ShowType::Schemas => {
+            ShowType::GraphTypes => {
                 let columns = vec!["name".to_string()];
                 let rows = vec![vec![ResultValue::Scalar(PropertyValue::String(
-                    "public".to_string(),
+                    "default_graph_type".to_string(),
                 ))]];
                 Ok(QueryResult {
                     columns,
@@ -1733,34 +1788,43 @@ impl QueryExecutor {
                 })
             }
             ShowType::Labels => {
-                // Return vertex labels - predefined for the system
-                let columns = vec!["label".to_string(), "description".to_string()];
-                let rows = vec![
-                    vec![
-                        ResultValue::Scalar(PropertyValue::String("Account".to_string())),
-                        ResultValue::Scalar(PropertyValue::String("EOA account".to_string())),
-                    ],
-                    vec![
-                        ResultValue::Scalar(PropertyValue::String("Contract".to_string())),
-                        ResultValue::Scalar(PropertyValue::String("Smart contract".to_string())),
-                    ],
-                    vec![
-                        ResultValue::Scalar(PropertyValue::String("Token".to_string())),
-                        ResultValue::Scalar(PropertyValue::String(
-                            "ERC20/ERC721 token".to_string(),
-                        )),
-                    ],
-                    vec![
-                        ResultValue::Scalar(PropertyValue::String("Transaction".to_string())),
-                        ResultValue::Scalar(PropertyValue::String(
-                            "Blockchain transaction".to_string(),
-                        )),
-                    ],
-                    vec![
-                        ResultValue::Scalar(PropertyValue::String("Block".to_string())),
-                        ResultValue::Scalar(PropertyValue::String("Blockchain block".to_string())),
-                    ],
+                // Return builtin node types from the system
+                use crate::builtin_types::BuiltinNodeType;
+                
+                let columns = vec![
+                    "label".to_string(), 
+                    "properties".to_string(),
+                    "description".to_string()
                 ];
+                
+                let mut rows = Vec::new();
+                for node_type in BuiltinNodeType::all() {
+                    let props: Vec<String> = node_type
+                        .properties()
+                        .iter()
+                        .map(|p| {
+                            if p.is_primary_key {
+                                format!("{}: {} (PK)", p.name, p.data_type)
+                            } else {
+                                format!("{}: {}", p.name, p.data_type)
+                            }
+                        })
+                        .collect();
+                    
+                    let description = match node_type {
+                        BuiltinNodeType::Account => "External account/address",
+                        BuiltinNodeType::Transaction => "Blockchain transaction",
+                        BuiltinNodeType::Block => "Blockchain block",
+                        BuiltinNodeType::Token => "Token contract (ERC20/ERC721)",
+                        BuiltinNodeType::Contract => "Smart contract",
+                    };
+                    
+                    rows.push(vec![
+                        ResultValue::Scalar(PropertyValue::String(node_type.name().to_string())),
+                        ResultValue::Scalar(PropertyValue::String(props.join(", "))),
+                        ResultValue::Scalar(PropertyValue::String(description.to_string())),
+                    ]);
+                }
 
                 Ok(QueryResult {
                     columns,
@@ -1769,26 +1833,41 @@ impl QueryExecutor {
                 })
             }
             ShowType::EdgeTypes => {
-                // Return edge types - predefined for the system
-                let columns = vec!["type".to_string(), "description".to_string()];
-                let rows = vec![
-                    vec![
-                        ResultValue::Scalar(PropertyValue::String("Transfer".to_string())),
-                        ResultValue::Scalar(PropertyValue::String("Token transfer".to_string())),
-                    ],
-                    vec![
-                        ResultValue::Scalar(PropertyValue::String("Call".to_string())),
-                        ResultValue::Scalar(PropertyValue::String("Contract call".to_string())),
-                    ],
-                    vec![
-                        ResultValue::Scalar(PropertyValue::String("Create".to_string())),
-                        ResultValue::Scalar(PropertyValue::String("Contract creation".to_string())),
-                    ],
-                    vec![
-                        ResultValue::Scalar(PropertyValue::String("Approve".to_string())),
-                        ResultValue::Scalar(PropertyValue::String("Token approval".to_string())),
-                    ],
+                // Return builtin edge types from the system
+                use crate::builtin_types::BuiltinEdgeType;
+                
+                let columns = vec![
+                    "type".to_string(), 
+                    "source".to_string(),
+                    "target".to_string(),
+                    "properties".to_string(),
+                    "description".to_string()
                 ];
+                
+                let mut rows = Vec::new();
+                for edge_type in BuiltinEdgeType::all() {
+                    let props: Vec<String> = edge_type
+                        .properties()
+                        .iter()
+                        .map(|p| format!("{}: {}", p.name, p.data_type))
+                        .collect();
+                    
+                    let description = match edge_type {
+                        BuiltinEdgeType::Transfer => "Aggregated token transfer",
+                        BuiltinEdgeType::TxRel => "Account-Transaction relationship",
+                        BuiltinEdgeType::Call => "Contract call",
+                        BuiltinEdgeType::Approval => "ERC20 token approval",
+                        BuiltinEdgeType::TokenTransfer => "Single token transfer",
+                    };
+                    
+                    rows.push(vec![
+                        ResultValue::Scalar(PropertyValue::String(edge_type.name().to_string())),
+                        ResultValue::Scalar(PropertyValue::String(edge_type.source_type().to_string())),
+                        ResultValue::Scalar(PropertyValue::String(edge_type.target_type().to_string())),
+                        ResultValue::Scalar(PropertyValue::String(props.join(", "))),
+                        ResultValue::Scalar(PropertyValue::String(description.to_string())),
+                    ]);
+                }
 
                 Ok(QueryResult {
                     columns,
@@ -1998,12 +2077,12 @@ impl QueryExecutor {
                     vec![
                         ResultValue::Scalar(PropertyValue::String("vertex_count".to_string())),
                         ResultValue::Scalar(PropertyValue::Integer(
-                            self.graph.vertex_count() as i64
+                            self.graph().vertex_count() as i64
                         )),
                     ],
                     vec![
                         ResultValue::Scalar(PropertyValue::String("edge_count".to_string())),
-                        ResultValue::Scalar(PropertyValue::Integer(self.graph.edge_count() as i64)),
+                        ResultValue::Scalar(PropertyValue::Integer(self.graph().edge_count() as i64)),
                     ],
                     vec![
                         ResultValue::Scalar(PropertyValue::String("created_at".to_string())),
@@ -2018,7 +2097,7 @@ impl QueryExecutor {
                     stats: QueryStats::default(),
                 })
             }
-            DescribeType::Schema => {
+            DescribeType::GraphType => {
                 let columns = vec!["property".to_string(), "value".to_string()];
                 let rows = vec![
                     vec![
@@ -2200,7 +2279,7 @@ impl QueryExecutor {
             VertexLabel::Transaction,
             VertexLabel::Block,
         ] {
-            all_vertices.extend(self.graph.get_vertices_by_label(label));
+            all_vertices.extend(self.graph().get_vertices_by_label(label));
         }
         stats.vertices_scanned = all_vertices.len();
 
@@ -2273,17 +2352,21 @@ impl QueryExecutor {
 
     /// Execute USE statement - set graph context
     fn execute_use(&self, stmt: &UseStatement) -> Result<QueryResult> {
-        let graph_name = match &stmt.graph {
+        let target_name = match &stmt.graph {
             GraphReference::Named(name) => name.clone(),
-            GraphReference::Current => "CURRENT_GRAPH".to_string(),
+            GraphReference::Current => self.catalog.current_graph_name(),
             GraphReference::Subquery(_) => "SUBQUERY_GRAPH".to_string(),
         };
+
+        let graph = self.catalog.use_graph(&target_name)?;
 
         Ok(QueryResult {
             columns: vec!["result".to_string()],
             rows: vec![vec![ResultValue::Scalar(PropertyValue::String(format!(
-                "Using graph: {}",
-                graph_name
+                "Using graph: {} (V={}, E={})",
+                target_name,
+                graph.vertex_count(),
+                graph.edge_count()
             )))]],
             stats: QueryStats::default(),
         })
@@ -2369,13 +2452,13 @@ impl QueryExecutor {
     fn execute_session(&self, stmt: &SessionStatement) -> Result<QueryResult> {
         let message = match stmt {
             SessionStatement::Set(item) => match item {
-                SessionSetItem::Schema(name) => format!("Schema set to: {}", name),
+                SessionSetItem::GraphType(name) => format!("Graph Type set to: {}", name),
                 SessionSetItem::Graph(name) => format!("Graph set to: {}", name),
                 SessionSetItem::TimeZone(tz) => format!("Time zone set to: {}", tz),
                 SessionSetItem::Parameter(name, _value) => format!("Parameter {} set", name),
             },
             SessionStatement::Reset(item) => match item {
-                SessionResetItem::Schema => "Schema reset to default".to_string(),
+                SessionResetItem::GraphType => "Graph Type reset to default".to_string(),
                 SessionResetItem::Graph => "Graph reset to default".to_string(),
                 SessionResetItem::TimeZone => "Time zone reset to default".to_string(),
                 SessionResetItem::All => "All session settings reset".to_string(),

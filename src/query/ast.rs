@@ -9,7 +9,7 @@
 //! - Path modes: WALK, TRAIL, SIMPLE, ACYCLIC
 //! - Path search prefixes: ALL, ANY, SHORTEST
 //! - Match modes: REPEATABLE ELEMENTS, DIFFERENT EDGES
-//! - Inline graph schemas: NODE and EDGE definitions within CREATE GRAPH
+//! - Inline Graph Types: NODE and EDGE definitions within CREATE GRAPH
 //! - Full label expressions with negation, conjunction, disjunction
 //! - Quantified path patterns
 
@@ -961,7 +961,7 @@ pub struct YieldItem {
 // Graph Management Statements (ISO GQL 39075)
 // ============================================================================
 
-/// CREATE GRAPH statement with optional inline schema
+/// CREATE GRAPH statement with optional inline Graph Type definition
 /// Example: CREATE GRAPH myGraph { NODE Account, EDGE Transfer }
 #[derive(Debug, Clone)]
 pub struct CreateGraphStatement {
@@ -969,11 +969,11 @@ pub struct CreateGraphStatement {
     pub name: String,
     /// IF NOT EXISTS clause
     pub if_not_exists: bool,
-    /// Optional inline graph schema
+    /// Optional inline Graph Type definition
     pub schema: Option<GraphSchema>,
 }
 
-/// Inline graph schema definition
+/// Inline Graph Type definition
 #[derive(Debug, Clone)]
 pub struct GraphSchema {
     /// Node type specifications
@@ -982,7 +982,7 @@ pub struct GraphSchema {
     pub edge_types: Vec<EdgeTypeSpec>,
 }
 
-/// Property specification for schema
+/// Property specification for Graph Type
 #[derive(Debug, Clone)]
 pub struct PropertySpec {
     /// Property name
@@ -993,26 +993,30 @@ pub struct PropertySpec {
     pub is_primary_key: bool,
 }
 
-/// Node type specification in inline schema
+/// Node type specification in inline Graph Type
 #[derive(Debug, Clone)]
 pub struct NodeTypeSpec {
     /// Node label
     pub label: String,
-    /// Properties
+    /// Properties (empty if referencing builtin type)
     pub properties: Vec<PropertySpec>,
+    /// Is this a builtin type reference (e.g., __Account)?
+    pub is_builtin_ref: bool,
 }
 
-/// Edge type specification in inline schema
+/// Edge type specification in inline Graph Type
 #[derive(Debug, Clone)]
 pub struct EdgeTypeSpec {
     /// Edge label
     pub label: String,
-    /// Source node label
+    /// Source node label (empty if referencing builtin type)
     pub source_label: String,
-    /// Target node label
+    /// Target node label (empty if referencing builtin type)
     pub target_label: String,
-    /// Properties
+    /// Properties (empty if referencing builtin type)
     pub properties: Vec<PropertySpec>,
+    /// Is this a builtin type reference (e.g., __Transfer)?
+    pub is_builtin_ref: bool,
 }
 
 /// DROP GRAPH statement
@@ -1141,7 +1145,7 @@ pub enum SetOperation {
 }
 
 /// Session statement - session management (ISO GQL 39075)
-/// Example: SESSION SET SCHEMA mySchema
+/// Example: SESSION SET GRAPH TYPE myGraphType
 #[derive(Debug, Clone)]
 pub enum SessionStatement {
     /// SET operation
@@ -1155,8 +1159,8 @@ pub enum SessionStatement {
 /// Session SET item
 #[derive(Debug, Clone)]
 pub enum SessionSetItem {
-    /// SET SCHEMA
-    Schema(String),
+    /// SET GRAPH TYPE
+    GraphType(String),
     /// SET GRAPH
     Graph(String),
     /// SET TIME ZONE
@@ -1168,8 +1172,8 @@ pub enum SessionSetItem {
 /// Session RESET item
 #[derive(Debug, Clone)]
 pub enum SessionResetItem {
-    /// RESET SCHEMA
-    Schema,
+    /// RESET GRAPH TYPE
+    GraphType,
     /// RESET GRAPH
     Graph,
     /// RESET TIME ZONE
@@ -1213,7 +1217,7 @@ pub enum TransactionAccessMode {
 /// SHOW statement - list database objects
 /// Examples:
 ///   SHOW GRAPHS
-///   SHOW SCHEMAS
+///   SHOW GRAPH TYPES
 ///   SHOW FUNCTIONS
 ///   SHOW PROCEDURES
 #[derive(Debug, Clone)]
@@ -1229,8 +1233,8 @@ pub struct ShowStatement {
 pub enum ShowType {
     /// SHOW GRAPHS - list all graphs
     Graphs,
-    /// SHOW SCHEMAS - list all schemas
-    Schemas,
+    /// SHOW GRAPH TYPES - list all graph types
+    GraphTypes,
     /// SHOW FUNCTIONS - list all functions
     Functions,
     /// SHOW PROCEDURES - list all procedures
@@ -1264,8 +1268,8 @@ pub struct DescribeStatement {
 pub enum DescribeType {
     /// DESCRIBE GRAPH - show graph details
     Graph,
-    /// DESCRIBE SCHEMA - show schema details
-    Schema,
+    /// DESCRIBE GRAPH TYPE - show Graph Type details
+    GraphType,
     /// DESCRIBE LABEL / VERTEX TYPE - show vertex type details
     Label,
     /// DESCRIBE EDGE TYPE / RELATIONSHIP TYPE - show edge type details

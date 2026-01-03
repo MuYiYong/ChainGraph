@@ -19,7 +19,7 @@ const GQL_KEYWORDS: &[&str] = &[
     // DDL
     "GRAPH", "NODE", "EDGE", "TYPE", "LABEL", "INDEX", "CONSTRAINT",
     // 元数据
-    "SHOW", "DESCRIBE", "DESC", "GRAPHS", "LABELS", "TYPES", "SCHEMAS",
+    "SHOW", "DESCRIBE", "DESC", "GRAPHS", "GRAPH", "TYPE", "TYPES", "LABELS",
     "INDEXES", "CONSTRAINTS", "PROCEDURES", "FUNCTIONS",
     // 过程调用
     "CALL", "YIELD",
@@ -42,7 +42,7 @@ const GQL_KEYWORDS: &[&str] = &[
 fn get_sub_commands(keyword: &str) -> Option<&'static [&'static str]> {
     match keyword {
         "SHOW" => Some(&[
-            "GRAPHS", "LABELS", "EDGE", "TYPES", "SCHEMAS", "INDEXES",
+            "GRAPHS", "GRAPH", "TYPES", "LABELS", "EDGE", "TYPES", "INDEXES",
             "CONSTRAINTS", "PROCEDURES", "FUNCTIONS",
         ]),
         "DESCRIBE" | "DESC" => Some(&["GRAPH", "LABEL", "EDGE", "TYPE", "INDEX"]),
