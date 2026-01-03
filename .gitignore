@@ -39,3 +39,4 @@ Dockerfile.linux
 # 临时文件
 *.tmp
 *.bak
+test_data_temp/
