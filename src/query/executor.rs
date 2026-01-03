@@ -2521,21 +2521,32 @@ impl QueryExecutor {
 mod tests {
     use super::*;
     use crate::query::parser::parse;
+    use std::env;
+    use std::fs;
 
-    fn setup_test_graph() -> Arc<Graph> {
-        let graph = Graph::in_memory().unwrap();
+    fn setup_test_catalog() -> Arc<GraphCatalog> {
+        // Create a unique temporary directory for each test
+        let test_dir = env::temp_dir().join(format!("chaingraph_test_{}", std::process::id()));
+        
+        // Clean up if exists from previous run
+        let _ = fs::remove_dir_all(&test_dir);
+        
+        // Create catalog with a default graph
+        let catalog = GraphCatalog::open(&test_dir, Some(64)).unwrap();
+        let graph = catalog.current_graph();
+        
         let v1 = graph.add_account("0x742d35Cc6634C0532925a3b844Bc9e7595f3fBb0".to_string()).unwrap();
         let v2 = graph.add_account("0x8ba1f109551bD432803012645Ac136ddd64DBA72".to_string()).unwrap();
         graph
             .add_transfer(v1, v2, TokenAmount::from_u64(1000), 12345678)
             .unwrap();
-        graph
+        catalog
     }
 
     #[test]
     fn test_execute_simple_match() {
-        let graph = setup_test_graph();
-        let executor = QueryExecutor::new(graph);
+        let catalog = setup_test_catalog();
+        let executor = QueryExecutor::new(catalog);
         let stmt = parse("MATCH (n:Account) RETURN n").unwrap();
         let result = executor.execute(&stmt).unwrap();
         assert_eq!(result.columns.len(), 1);
@@ -2544,8 +2555,8 @@ mod tests {
 
     #[test]
     fn test_execute_path_match() {
-        let graph = setup_test_graph();
-        let executor = QueryExecutor::new(graph);
+        let catalog = setup_test_catalog();
+        let executor = QueryExecutor::new(catalog);
         let stmt = parse("MATCH (a:Account)-[t:Transfer]->(b:Account) RETURN a, b, t").unwrap();
         let result = executor.execute(&stmt).unwrap();
         assert_eq!(result.columns.len(), 3);
@@ -2554,8 +2565,8 @@ mod tests {
 
     #[test]
     fn test_execute_with_limit() {
-        let graph = setup_test_graph();
-        let executor = QueryExecutor::new(graph);
+        let catalog = setup_test_catalog();
+        let executor = QueryExecutor::new(catalog);
         let stmt = parse("MATCH (n:Account) RETURN n LIMIT 1").unwrap();
         let result = executor.execute(&stmt).unwrap();
         assert_eq!(result.rows.len(), 1);
